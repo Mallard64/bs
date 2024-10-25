@@ -6,6 +6,8 @@ TagManager:
   tags:
   - Player Bullet
   - Enemy Bullet
+  - Bushes
+  - SpawnPoint
   layers:
   - Default
   - TransparentFX
@@ -48,4 +50,7 @@ TagManager:
     locked: 0
   - name: even higher
     uniqueID: 2054494543
+    locked: 0
+  - name: bushes
+    uniqueID: 3150228201
     locked: 0
