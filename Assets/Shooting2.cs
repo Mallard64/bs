@@ -28,6 +28,7 @@ public class MouseShooting2 : NetworkBehaviour
 
     void Start()
     {
+        aimingSprite.SetActive(false);
         if (!isLocalPlayer) return;  // Only set up camera for the local player
 
         // Enable the camera only for the local player
