@@ -106,7 +106,7 @@ public class MouseShooting1 : NetworkBehaviour
 
             // Set the bullet's velocity and assign shooter ID
             bullet.GetComponent<Rigidbody2D>().velocity = rotatedDirection * bulletSpeed;
-            bullet.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().id;
+            bullet.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
 
             // Spawn the bullet on the server
             NetworkServer.Spawn(bullet);

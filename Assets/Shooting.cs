@@ -98,7 +98,7 @@ public class MouseShooting : NetworkBehaviour
         bullet.GetComponent<Rigidbody2D>().velocity = direction * bulletSpeed;
 
         // Assign the player's ID to the bullet's shooterId
-        bullet.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().id; // Assuming the player has an 'Enemy' script attached with an ID
+        bullet.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId; // Assuming the player has an 'Enemy' script attached with an ID
 
         NetworkServer.Spawn(bullet);
 
