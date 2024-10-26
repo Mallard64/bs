@@ -757,6 +757,10 @@ MonoBehaviour:
   warriorPrefab: {fileID: 2962604456336756810, guid: b35b531b6955d4da7a34bb49767d65cb, type: 3}
   magePrefab: {fileID: 2962604456336756810, guid: 4d6fdea374f234b2b9fb8fed91cf787a, type: 3}
   archerPrefab: {fileID: 2962604456336756810, guid: 872c083740dfa4aea9a206595106683c, type: 3}
+  t: {x: 0, y: 0, z: 0}
+  spawnPoints:
+  - {x: 20, y: -20, z: 0}
+  - {x: -20, y: 20, z: 0}
 --- !u!1001 &1541806835
 PrefabInstance:
   m_ObjectHideFlags: 0

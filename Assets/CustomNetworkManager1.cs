@@ -7,22 +7,21 @@ public class CustomNetworkManager1 : NetworkManager
     public GameObject warriorPrefab;
     public GameObject magePrefab;
     public GameObject archerPrefab;
-    public Transform t;
-    private List<Transform> spawnPoints = new List<Transform>(); // All spawn points
-    private Queue<Transform> availableSpawnPoints = new Queue<Transform>(); // Queue to cycle through spawn points
-    private Dictionary<NetworkConnectionToClient, Transform> playerSpawnPoints = new Dictionary<NetworkConnectionToClient, Transform>();
+    public Vector3 t;
+    public List<Vector3> spawnPoints; // All spawn points
+    public Queue<Vector3> availableSpawnPoints = new Queue<Vector3>(); // Queue to cycle through spawn points
+    public Dictionary<int, Vector3> playerSpawnPoints = new Dictionary<int, Vector3>();
     private int nextSpawnIndex = 0;
 
     public override void Start()
     {
         base.Start();
-        // Find all SpawnPoint objects in the scene and add their Transform to the spawnPoints list
+        // Find all SpawnPoint objects in the scene and add their Vector3 to the spawnPoints list
         GameObject[] spawnPointObjects = GameObject.FindGameObjectsWithTag("SpawnPoint");
-        spawnPoints = new List<Transform>();
 
         foreach (GameObject obj in spawnPointObjects)
         {
-            spawnPoints.Add(obj.transform);
+            spawnPoints.Add(obj.transform.position);
         }
         if (spawnPoints.Count == 0)
         {
@@ -39,7 +38,7 @@ public class CustomNetworkManager1 : NetworkManager
     }
 
     // Function to get the next available spawn point
-    public Transform GetNextSpawnPoint()
+    public Vector3 GetNextSpawnPoint()
     {
         if (availableSpawnPoints.Count == 0)
         {
@@ -50,36 +49,34 @@ public class CustomNetworkManager1 : NetworkManager
             }
         }
 
-        Transform nextSpawnPoint = availableSpawnPoints.Dequeue();
+        Vector3 nextSpawnPoint = availableSpawnPoints.Dequeue();
         availableSpawnPoints.Enqueue(nextSpawnPoint); // Recycle the used spawn point
-        Debug.Log("Assigning spawn point: " + nextSpawnPoint.position);
         return nextSpawnPoint;
     }
 
     // Function to get a unique spawn point for each player
-    public Transform AssignSpawnPoint(NetworkConnectionToClient conn)
+    public Vector3 AssignSpawnPoint(int conn)
     {
         // Check if the player already has an assigned spawn point
         if (playerSpawnPoints.ContainsKey(conn))
         {
             return playerSpawnPoints[conn]; // Return the already assigned spawn point
         }
-
-        // Assign a new spawn point if available
-        if (spawnPoints.Count > 0)
+        else if (spawnPoints.Count > 0)
         {
-            Transform spawnPoint = spawnPoints[0]; // Pick the first available spawn point
+            Debug.Log("SPAWN POINT" + spawnPoints.Count);
+            Vector3 spawnPoint = spawnPoints[0]; // Pick the first available spawn point
             playerSpawnPoints.Add(conn, spawnPoint); // Assign it to the player
 
             // Remove the spawn point from the list to ensure it's not reused
             spawnPoints.RemoveAt(0);
 
-            Debug.Log("Assigned spawn point: " + spawnPoint.position + " to player with connection ID: " + conn.connectionId);
+            Debug.Log(spawnPoints.Count);
             return spawnPoint;
         }
 
         Debug.LogError("No available spawn points!");
-        return null;
+        return Vector3.zero;
     }
 
     public override void OnStartServer()
@@ -120,10 +117,8 @@ public class CustomNetworkManager1 : NetworkManager
                 playerPrefab = warriorPrefab;
                 break;
         }
-
         // Instantiate the chosen player prefab
-        Transform spawnPoint = AssignSpawnPoint(conn);
-        GameObject playerInstance = Instantiate(playerPrefab, spawnPoint.position, Quaternion.identity);
+        GameObject playerInstance = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
 
         // Add the player to the server
         NetworkServer.AddPlayerForConnection(conn, playerInstance);
@@ -150,12 +145,8 @@ public class CustomNetworkManager1 : NetworkManager
                 playerPrefab = warriorPrefab;
                 break;
         }
-
-        // Choose the next spawn point for the player
-        Transform spawnPoint = AssignSpawnPoint(conn);
-
         // Instantiate the chosen player prefab at the selected spawn point
-        GameObject playerInstance = Instantiate(playerPrefab, spawnPoint.position, Quaternion.identity);
+        GameObject playerInstance = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
 
         // Add the player to the server
         NetworkServer.AddPlayerForConnection(conn, playerInstance);

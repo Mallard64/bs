@@ -18,7 +18,7 @@ public class Bullet : NetworkBehaviour
         Enemy enemy = collision.gameObject.GetComponent<Enemy>();
 
         // Ensure the collision target is not the player who fired the bullet
-        if (enemy != null && enemy.id != shooterId)
+        if (enemy != null && enemy.connectionId != shooterId)
         {
             // Server applies the damage
             enemy.TakeDamage(bulletDamage);
