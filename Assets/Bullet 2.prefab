@@ -16,7 +16,7 @@ GameObject:
   - component: {fileID: 3979198061665482128}
   - component: {fileID: 4157972695259332788}
   m_Layer: 1
-  m_Name: Bullet
+  m_Name: Bullet 2
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -49,11 +49,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 257901a46ced343d6a7c21579b61c79b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  syncDirection: 0
-  syncMode: 0
-  syncInterval: 0
-  bulletDamage: 20
-  shooterId: 0
+  id: player
+  bulletDamage: 10
 --- !u!212 &856623730395010133
 SpriteRenderer:
   m_ObjectHideFlags: 0
