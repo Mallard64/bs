@@ -24,7 +24,7 @@ public class MouseShooting : NetworkBehaviour
     [SyncVar(hook = nameof(OnAmmoChanged))]  // Sync the current ammo across clients
     public int currentAmmo;
 
-    private bool isReloading = false;
+    public bool isReloading = false;
 
     void Start()
     {
@@ -90,7 +90,7 @@ public class MouseShooting : NetworkBehaviour
 
     // Command that runs on the server to handle shooting, now receives direction from client
     [Command]
-    void CmdShoot(Vector3 direction)
+    public virtual void CmdShoot(Vector3 direction)
     {
         // Create the bullet on the server
         Vector3 spawnPosition = firePoint.position + direction * 0.6f;
@@ -132,7 +132,7 @@ public class MouseShooting : NetworkBehaviour
     }
 
     // Show the aiming sprite with rotation based on mouse position
-    void ShowAimingSprite()
+    public virtual void ShowAimingSprite()
     {
         if (playerCamera == null) return;
 
