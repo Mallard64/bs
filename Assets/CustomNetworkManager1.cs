@@ -7,6 +7,7 @@ public class CustomNetworkManager1 : NetworkManager
     public GameObject warriorPrefab;
     public GameObject magePrefab;
     public GameObject archerPrefab;
+    public GameObject throwerPrefab;
     public Vector3 t;
     public List<Vector3> spawnPoints; // All spawn points
     public Queue<Vector3> availableSpawnPoints = new Queue<Vector3>(); // Queue to cycle through spawn points
@@ -113,6 +114,11 @@ public class CustomNetworkManager1 : NetworkManager
                 playerPrefab = archerPrefab;
                 break;
             case 3:
+                playerPrefab = warriorPrefab;
+                break;
+            case 4:
+                playerPrefab = throwerPrefab;
+                break;
             default:
                 playerPrefab = warriorPrefab;
                 break;
