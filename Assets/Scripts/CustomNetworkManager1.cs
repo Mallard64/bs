@@ -1,6 +1,7 @@
 using UnityEngine;
 using Mirror;
 using System.Collections.Generic;
+using TMPro;
 
 public class CustomNetworkManager1 : NetworkManager
 {
@@ -10,8 +11,11 @@ public class CustomNetworkManager1 : NetworkManager
     public GameObject throwerPrefab;
     public Vector3 t;
     public List<Vector3> spawnPoints; // All spawn points
+    public List<TextMeshProUGUI> texts; // All spawn points
     public Queue<Vector3> availableSpawnPoints = new Queue<Vector3>(); // Queue to cycle through spawn points
     public Dictionary<int, Vector3> playerSpawnPoints = new Dictionary<int, Vector3>();
+    public Queue<TextMeshProUGUI> availableText = new Queue<TextMeshProUGUI>(); // Queue to cycle through spawn points
+    public Dictionary<int, TextMeshProUGUI> playerText = new Dictionary<int, TextMeshProUGUI>();
     private int nextSpawnIndex = 0;
 
     public override void Start()
@@ -80,6 +84,47 @@ public class CustomNetworkManager1 : NetworkManager
         return Vector3.zero;
     }
 
+    // Function to get the next available spawn point
+    public TextMeshProUGUI GetNextText()
+    {
+        if (availableText.Count == 0)
+        {
+            Debug.Log("All spawn points used up, re-adding all spawn points to the queue.");
+            foreach (var spawnPoint in spawnPoints)
+            {
+                availableSpawnPoints.Enqueue(spawnPoint);
+            }
+        }
+
+        TextMeshProUGUI nextSpawnPoint = availableText.Dequeue();
+        availableText.Enqueue(nextSpawnPoint); // Recycle the used spawn point
+        return nextSpawnPoint;
+    }
+
+    // Function to get a unique spawn point for each player
+    public TextMeshProUGUI AssignText(int conn)
+    {
+        // Check if the player already has an assigned spawn point
+        if (playerSpawnPoints.ContainsKey(conn))
+        {
+            return playerText[conn]; // Return the already assigned spawn point
+        }
+        else if (spawnPoints.Count > 0)
+        {
+            Debug.Log("SPAWN POINT" + spawnPoints.Count);
+            TextMeshProUGUI spawnPoint = texts[0]; // Pick the first available spawn point
+            playerText.Add(conn, spawnPoint); // Assign it to the player
+
+            // Remove the spawn point from the list to ensure it's not reused
+            texts.RemoveAt(0);
+
+            return spawnPoint;
+        }
+
+        Debug.LogError("No available spawn points!");
+        return null;
+    }
+
     public override void OnStartServer()
     {
         base.OnStartServer();
@@ -128,6 +173,7 @@ public class CustomNetworkManager1 : NetworkManager
 
         // Add the player to the server
         NetworkServer.AddPlayerForConnection(conn, playerInstance);
+        
         
     }
 

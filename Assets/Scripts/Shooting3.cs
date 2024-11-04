@@ -11,6 +11,10 @@ public class MouseShooting3 : MouseShooting
     public override void CmdShoot(Vector3 direction)
     {
         direction = (playerCamera.ScreenToWorldPoint(new Vector3(Input.mousePosition.x, Input.mousePosition.y, playerCamera.nearClipPlane)) - firePoint.position).normalized;
+        if (Vector3.Distance(playerCamera.ScreenToWorldPoint(new Vector3(Input.mousePosition.x, Input.mousePosition.y, playerCamera.nearClipPlane)), firePoint.position) > maxShootDistance)
+        {
+            return;
+        }
         Vector3 rotatedDirection = Quaternion.Euler(0, 0, 0) * direction;
         Vector3 spawnPosition = firePoint.position + direction * 0.6f;
 
@@ -55,7 +59,8 @@ public class MouseShooting3 : MouseShooting
         // Clamp the position if it's beyond maxShootDistance
         if (distance > maxShootDistance)
         {
-            mousePosition = firePoint.position + direction * maxShootDistance;
+            aimingSprite.SetActive(false);
+            return;
         }
 
         // Update the aiming sprite's position

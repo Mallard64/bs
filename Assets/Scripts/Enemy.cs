@@ -1,6 +1,10 @@
 using UnityEngine;
 using Mirror;
+using UnityEngine.UI;
+using TMPro;
 using System.Collections;
+using System;
+using UnityEngine.SceneManagement;
 
 public class Enemy : NetworkBehaviour
 {
@@ -14,9 +18,29 @@ public class Enemy : NetworkBehaviour
     private CustomNetworkManager1 networkManager;
     public int connectionId; // Store the player's connection ID for consistency
     public Vector3 assignedSpawnPoint; // Store the player's assigned spawn point
+    public int numPlayers;
+    GameStatsManager pt;
+
+    public bool hx = false;
+
+    public void Win()
+    {
+        SceneManager.LoadScene("Win");
+    }
+
+    public void Lose()
+    {
+        SceneManager.LoadScene("Lose");
+    }
+
+    public void Tie()
+    {
+        SceneManager.LoadScene("Tie");
+    }
 
     void Start()
     {
+        pt = FindObjectOfType<GameStatsManager>();
         health = maxHealth;
         networkManager = (CustomNetworkManager1)NetworkManager.singleton;
 
@@ -33,10 +57,60 @@ public class Enemy : NetworkBehaviour
         {
             Debug.LogError("Failed to assign a spawn point.");
         }
+        if (isLocalPlayer)
+        {
+            if (FindObjectsOfType<Enemy>().Length > 1)
+            {
+                pt.killsText.color = Color.red;
+                hx = true;
+            }
+            else
+            {
+                pt.killsText1.color = Color.red;
+                hx = false;
+            }
+        }
+        
     }
 
     void Update()
     {
+        if (isLocalPlayer)
+        {
+            if (pt.gameTime >= 120)
+            {
+                if (hx)
+                {
+                    if (pt.kills > pt.kills1)
+                    {
+                        Win();
+                    }
+                    else if (pt.kills < pt.kills1)
+                    {
+                        Lose();
+                    }
+                    else
+                    {
+                        Tie();
+                    }
+                }
+                else
+                {
+                    if (pt.kills < pt.kills1)
+                    {
+                        Win();
+                    }
+                    else if (pt.kills > pt.kills1)
+                    {
+                        Lose();
+                    }
+                    else
+                    {
+                        Tie();
+                    }
+                }
+            }
+        }
         UpdateHealthColor();
         if (health <= 0)
         {
@@ -53,8 +127,18 @@ public class Enemy : NetworkBehaviour
     [Server]
     public void TakeDamage(int damage)
     {
-        if (health <= 0) return;
-
+        if (health <= 0)
+        {
+            if (isLocalPlayer)
+            {
+                pt.AddKill();
+            }
+            else
+            {
+                pt.AddKill1();
+            }
+            return;
+        }
         health -= damage;
 
         if (gameObject.GetComponent<Bushes>().inBush)
@@ -73,6 +157,7 @@ public class Enemy : NetworkBehaviour
     [Server]
     IEnumerator RespawnPlayer()
     {
+        
         RpcDisablePlayer();
         yield return new WaitForSeconds(respawnTime);
         health = maxHealth;
