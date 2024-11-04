@@ -294,6 +294,8 @@ MonoBehaviour:
   respawnTime: 3
   connectionId: 0
   assignedSpawnPoint: {x: 0, y: 0, z: 0}
+  numPlayers: 0
+  hx: 0
 --- !u!114 &-5587294770490662518
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -312,10 +314,10 @@ MonoBehaviour:
   bulletPrefab: {fileID: 3393839604986813093, guid: a6efb3b32f64b46f6a161ea53c2b3f66, type: 3}
   firePoint: {fileID: 4075425287797970096}
   playerCamera: {fileID: 3183439581629459433}
-  bulletSpeed: 6
+  bulletSpeed: 40
   maxShootDistance: 20
   maxAmmo: 2
-  bulletLifetime: 2
+  bulletLifetime: 0.2
   lineRenderer: {fileID: 5676126698771483985}
   reloadTime: 3
   playerHP: 70
@@ -338,7 +340,7 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  moveSpeed: 3.5
+  moveSpeed: 13
   rb: {fileID: 3117468236244017380}
 --- !u!212 &7741182206367089162
 SpriteRenderer:
