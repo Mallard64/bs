@@ -141,11 +141,8 @@ public class Enemy : NetworkBehaviour
         }
         health -= damage;
 
-        if (gameObject.GetComponent<Bushes>().inBush)
-        {
-            SetVisibility(true);
-            StartCoroutine(ShowFace());
-        }
+        SetVisibility(true);
+        StartCoroutine(ShowFace());
 
         if (health <= 0)
         {
