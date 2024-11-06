@@ -22,6 +22,7 @@ public class Bullet : NetworkBehaviour
         {
             // Server applies the damage
             enemy.TakeDamage(bulletDamage);
+            enemy.gameObject.GetComponent<SpriteRenderer>().enabled = true;
             Debug.Log("Dealt " + bulletDamage + " damage to: " + enemy.gameObject.name);
 
             // Destroy the bullet after it hits the enemy

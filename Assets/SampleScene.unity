@@ -847,7 +847,7 @@ MonoBehaviour:
   onlineScene: Assets/SampleScene.unity
   offlineSceneLoadDelay: 0
   transport: {fileID: 1480082821}
-  networkAddress: localhost
+  networkAddress: 34.94.81.219
   maxConnections: 100
   disconnectInactiveConnections: 0
   disconnectInactiveTimeout: 60
