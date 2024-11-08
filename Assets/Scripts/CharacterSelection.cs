@@ -16,6 +16,6 @@ public class CharacterSelection : MonoBehaviour
     // Method to load the game scene
     public void LoadGame()
     {
-        SceneManager.LoadScene("SampleScene");  // Replace "GameScene" with the name of your actual game scene
+        SceneManager.LoadScene("select 1");  // Replace "GameScene" with the name of your actual game scene
     }
 }

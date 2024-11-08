@@ -6,7 +6,7 @@ public class PlayerMovement : NetworkBehaviour  // Extend NetworkBehaviour inste
     public float moveSpeed = 5f;
     public Rigidbody2D rb;
 
-    Vector2 movement;  // Change this to Vector2
+    Vector2 movement;
 
     void Update()
     {
@@ -18,7 +18,7 @@ public class PlayerMovement : NetworkBehaviour  // Extend NetworkBehaviour inste
 
         // Get input from WASD or arrow keys
         float moveX = Input.GetAxisRaw("Horizontal");
-        float moveY = Input.GetAxisRaw("Vertical");  // Change moveZ to moveY
+        float moveY = Input.GetAxisRaw("Vertical");
 
         // Update movement using Vector2 (for 2D)
         movement = new Vector2(moveX, moveY).normalized;
@@ -32,7 +32,7 @@ public class PlayerMovement : NetworkBehaviour  // Extend NetworkBehaviour inste
             return;
         }
 
-        // Apply movement to Rigidbody2D
-        rb.MovePosition(rb.position + movement * moveSpeed * Time.fixedDeltaTime);
+        // Apply movement directly to Rigidbody2D using velocity
+        rb.velocity = movement * moveSpeed;
     }
 }
