@@ -8,6 +8,7 @@ TagManager:
   - Enemy Bullet
   - Bushes
   - SpawnPoint
+  - ball
   layers:
   - Default
   - TransparentFX

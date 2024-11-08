@@ -59,7 +59,7 @@ public class Enemy : NetworkBehaviour
         }
         if (isLocalPlayer)
         {
-            if (FindObjectsOfType<Enemy>().Length > 1)
+            if (FindObjectsOfType<Enemy>().Length % 2 == 0)
             {
                 pt.killsText.color = Color.red;
                 hx = true;
@@ -129,7 +129,7 @@ public class Enemy : NetworkBehaviour
     {
         if (health <= 0)
         {
-            if (isLocalPlayer)
+            if (!hx)
             {
                 pt.AddKill();
             }
