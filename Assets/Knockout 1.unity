@@ -1495,6 +1495,7 @@ MonoBehaviour:
   gameTime: 0
   kills: 0
   kills1: 0
+  h: Goals
   timerText: {fileID: 1873386988}
   killsText: {fileID: 1600235001}
   killsText1: {fileID: 2035290793}

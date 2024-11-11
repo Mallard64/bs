@@ -8,10 +8,10 @@ using UnityEngine.SceneManagement;
 
 public class Enemy : NetworkBehaviour
 {
-    [SyncVar] public int health;
+    [SyncVar] public float health;
     [SyncVar(hook = nameof(OnVisibilityChanged))] public bool isVisible = true;
 
-    public int maxHealth = 3;
+    public float maxHealth = 100;
     public SpriteRenderer spriteRenderer;
     public float respawnTime = 3f;
 
@@ -22,6 +22,8 @@ public class Enemy : NetworkBehaviour
     GameStatsManager pt;
 
     public bool hx = false;
+
+    public float regainHealth = 0f;
 
     public void Win()
     {
@@ -117,6 +119,14 @@ public class Enemy : NetworkBehaviour
             transform.position = assignedSpawnPoint;
             StartCoroutine(RespawnPlayer());
         }
+        else
+        {
+            regainHealth += Time.deltaTime;
+        }
+        if (health < 100 && regainHealth >= 5f)
+        {
+            health += Time.deltaTime * 5f;
+        }
     }
 
     void OnVisibilityChanged(bool oldVisibility, bool newVisibility)
@@ -127,6 +137,7 @@ public class Enemy : NetworkBehaviour
     [Server]
     public void TakeDamage(int damage)
     {
+        regainHealth = 0f;
         if (health <= 0)
         {
             if (!hx)
