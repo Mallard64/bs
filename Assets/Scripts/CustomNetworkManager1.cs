@@ -2,6 +2,7 @@ using UnityEngine;
 using Mirror;
 using System.Collections.Generic;
 using TMPro;
+using UnityEngine.SceneManagement;
 
 public class CustomNetworkManager1 : NetworkManager
 {
@@ -9,6 +10,7 @@ public class CustomNetworkManager1 : NetworkManager
     public GameObject magePrefab;
     public GameObject archerPrefab;
     public GameObject throwerPrefab;
+    public GameObject background;
     public Vector3 t;
     public List<Vector3> spawnPoints; // All spawn points
     public List<TextMeshProUGUI> texts; // All spawn points
@@ -16,6 +18,7 @@ public class CustomNetworkManager1 : NetworkManager
     public Dictionary<int, Vector3> playerSpawnPoints = new Dictionary<int, Vector3>();
     public Queue<TextMeshProUGUI> availableText = new Queue<TextMeshProUGUI>(); // Queue to cycle through spawn points
     public Dictionary<int, TextMeshProUGUI> playerText = new Dictionary<int, TextMeshProUGUI>();
+    string oldScene = "";
     private int nextSpawnIndex = 0;
 
     public override void Start()
@@ -125,11 +128,22 @@ public class CustomNetworkManager1 : NetworkManager
         return null;
     }
 
+    public override void Update()
+    {
+        base.Update();
+        if ((SceneManager.GetActiveScene().name == "Knockout" || SceneManager.GetActiveScene().name == "Knockout 1") && oldScene != SceneManager.GetActiveScene().name)
+        {
+            Instantiate(background);
+            NetworkServer.RegisterHandler<PlayerMessage>(OnCreatePlayer);
+        }
+        oldScene = SceneManager.GetActiveScene().name;
+    }
+
     public override void OnStartServer()
     {
         base.OnStartServer();
         // Register the handler to receive the message
-        NetworkServer.RegisterHandler<PlayerMessage>(OnCreatePlayer);
+       
     }
 
     public override void OnClientConnect()

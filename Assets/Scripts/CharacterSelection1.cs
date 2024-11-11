@@ -26,7 +26,7 @@ public class CharacterSelection1 : MonoBehaviour
         }
         if (index == 3)
         {
-            SceneManager.LoadScene("SampleScene2");
+            SceneManager.LoadScene("Knockout 1");
         }
         if (index == 4)
         {

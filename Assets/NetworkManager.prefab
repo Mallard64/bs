@@ -1,0 +1,140 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &1305789524216556293
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 6932645187613507739}
+  - component: {fileID: 3149900891843667676}
+  - component: {fileID: 6187819380385946697}
+  - component: {fileID: 4041819527401938282}
+  m_Layer: 0
+  m_Name: NetworkManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &6932645187613507739
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1305789524216556293}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 3.5419676, y: 0.6122506, z: 0.90198904}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3149900891843667676
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1305789524216556293}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d4fea56149d9144bea22a1a7f73068eb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dontDestroyOnLoad: 1
+  runInBackground: 1
+  headlessStartMode: 1
+  editorAutoStart: 0
+  sendRate: 60
+  offlineScene: 
+  onlineScene: Assets/Knockout.unity
+  offlineSceneLoadDelay: 0
+  transport: {fileID: 6187819380385946697}
+  networkAddress: 34.94.81.219
+  maxConnections: 100
+  disconnectInactiveConnections: 0
+  disconnectInactiveTimeout: 60
+  authenticator: {fileID: 0}
+  playerPrefab: {fileID: 2962604456336756810, guid: 872c083740dfa4aea9a206595106683c, type: 3}
+  autoCreatePlayer: 0
+  playerSpawnMethod: 0
+  spawnPrefabs:
+  - {fileID: 3393839604986813093, guid: 99cbbf48850644943b2a64eed4ca5519, type: 3}
+  - {fileID: 2962604456336756810, guid: 4d6fdea374f234b2b9fb8fed91cf787a, type: 3}
+  - {fileID: 2962604456336756810, guid: b35b531b6955d4da7a34bb49767d65cb, type: 3}
+  - {fileID: 2962604456336756810, guid: dde86902e6134469581d0779d808425c, type: 3}
+  - {fileID: 3393839604986813093, guid: a6efb3b32f64b46f6a161ea53c2b3f66, type: 3}
+  - {fileID: 3393839604986813093, guid: a959be459bb864fe59091fade33bf0ee, type: 3}
+  - {fileID: 7023277849540729975, guid: 47404bdc0a6064ea69e1f71f7e671d77, type: 3}
+  exceptionsDisconnect: 1
+  snapshotSettings:
+    bufferTimeMultiplier: 2
+    bufferLimit: 32
+    catchupNegativeThreshold: -1
+    catchupPositiveThreshold: 1
+    catchupSpeed: 0.019999999552965164
+    slowdownSpeed: 0.03999999910593033
+    driftEmaDuration: 1
+    dynamicAdjustment: 1
+    dynamicAdjustmentTolerance: 1
+    deliveryTimeEmaDuration: 2
+  evaluationMethod: 0
+  evaluationInterval: 3
+  timeInterpolationGui: 0
+  warriorPrefab: {fileID: 2962604456336756810, guid: b35b531b6955d4da7a34bb49767d65cb, type: 3}
+  magePrefab: {fileID: 2962604456336756810, guid: 4d6fdea374f234b2b9fb8fed91cf787a, type: 3}
+  archerPrefab: {fileID: 2962604456336756810, guid: 872c083740dfa4aea9a206595106683c, type: 3}
+  throwerPrefab: {fileID: 2962604456336756810, guid: dde86902e6134469581d0779d808425c, type: 3}
+  t: {x: 0, y: 0, z: 0}
+  spawnPoints:
+  - {x: 20, y: -20, z: 0}
+  - {x: -20, y: 20, z: 0}
+  texts: []
+--- !u!114 &6187819380385946697
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1305789524216556293}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6b0fecffa3f624585964b0d0eb21b18e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  port: 7777
+  DualMode: 1
+  NoDelay: 1
+  Interval: 10
+  Timeout: 10000
+  RecvBufferSize: 7361536
+  SendBufferSize: 7361536
+  FastResend: 2
+  ReceiveWindowSize: 4096
+  SendWindowSize: 4096
+  MaxRetransmit: 40
+  MaximizeSocketBuffers: 1
+  ReliableMaxMessageSize: 297433
+  UnreliableMaxMessageSize: 1194
+  debugLog: 0
+  statisticsGUI: 0
+  statisticsLog: 0
+--- !u!114 &4041819527401938282
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1305789524216556293}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6442dc8070ceb41f094e44de0bf87274, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  offsetX: 0
+  offsetY: 0
