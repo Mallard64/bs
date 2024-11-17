@@ -55,7 +55,7 @@ MonoBehaviour:
   onlineScene: Assets/Knockout.unity
   offlineSceneLoadDelay: 0
   transport: {fileID: 6187819380385946697}
-  networkAddress: 34.94.81.219
+  networkAddress: localhost
   maxConnections: 100
   disconnectInactiveConnections: 0
   disconnectInactiveTimeout: 60
@@ -65,12 +65,9 @@ MonoBehaviour:
   playerSpawnMethod: 0
   spawnPrefabs:
   - {fileID: 3393839604986813093, guid: 99cbbf48850644943b2a64eed4ca5519, type: 3}
-  - {fileID: 2962604456336756810, guid: 4d6fdea374f234b2b9fb8fed91cf787a, type: 3}
-  - {fileID: 2962604456336756810, guid: b35b531b6955d4da7a34bb49767d65cb, type: 3}
-  - {fileID: 2962604456336756810, guid: dde86902e6134469581d0779d808425c, type: 3}
   - {fileID: 3393839604986813093, guid: a6efb3b32f64b46f6a161ea53c2b3f66, type: 3}
   - {fileID: 3393839604986813093, guid: a959be459bb864fe59091fade33bf0ee, type: 3}
-  - {fileID: 7023277849540729975, guid: 47404bdc0a6064ea69e1f71f7e671d77, type: 3}
+  - {fileID: 0}
   exceptionsDisconnect: 1
   snapshotSettings:
     bufferTimeMultiplier: 2
@@ -90,6 +87,7 @@ MonoBehaviour:
   magePrefab: {fileID: 2962604456336756810, guid: 4d6fdea374f234b2b9fb8fed91cf787a, type: 3}
   archerPrefab: {fileID: 2962604456336756810, guid: 872c083740dfa4aea9a206595106683c, type: 3}
   throwerPrefab: {fileID: 2962604456336756810, guid: dde86902e6134469581d0779d808425c, type: 3}
+  background: {fileID: 7023277849540729975, guid: 47404bdc0a6064ea69e1f71f7e671d77, type: 3}
   t: {x: 0, y: 0, z: 0}
   spawnPoints:
   - {x: 20, y: -20, z: 0}
