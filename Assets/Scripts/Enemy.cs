@@ -162,7 +162,6 @@ public class Enemy : NetworkBehaviour
         }
     }
 
-    [Server]
     IEnumerator RespawnPlayer()
     {
         

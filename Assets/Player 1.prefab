@@ -383,6 +383,7 @@ MonoBehaviour:
   assignedSpawnPoint: {x: 0, y: 0, z: 0}
   numPlayers: 0
   hx: 0
+  regainHealth: 0
 --- !u!114 &2936881308243051503
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -421,7 +422,7 @@ MonoBehaviour:
   bulletSpeed: 30
   maxShootDistance: 100
   maxAmmo: 4
-  bulletLifetime: 100
+  bulletLifetime: 6
   lineRenderer: {fileID: 5676126698771483985}
   reloadTime: 5
   playerHP: 110
