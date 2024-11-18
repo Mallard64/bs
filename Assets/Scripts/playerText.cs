@@ -28,34 +28,17 @@ public class GameStatsManager : NetworkBehaviour
 
     void Start()
     {
-        texts = Resources.FindObjectsOfTypeAll(typeof(GameObject)) as GameObject[];
-        for (int i = 0; i < texts.Length; i++)
-        {
-            Debug.Log(texts[i].name);
-            if (texts[i].name == "Timer")
-            {
-                timerText = texts[i].GetComponent<TextMeshProUGUI>();
-            }
-            if (texts[i].name == "Kills (player 1)")
-            {
-                killsText = texts[i].GetComponent<TextMeshProUGUI>();
-            }
-            if (texts[i].name == "Kills (player 2)")
-            {
-                killsText1 = texts[i].GetComponent<TextMeshProUGUI>();
-            }
-        }
+        StartCoroutine(UpdateTime());
         if (isServer)
         {
             
             gameTime = 0f;
             kills = 0;
-            StartCoroutine(UpdateTime());
+            
         }
         UpdateUI();
     }
 
-    [Server]
     private System.Collections.IEnumerator UpdateTime()
     {
         while (true)
@@ -79,15 +62,17 @@ public class GameStatsManager : NetworkBehaviour
 
     private void OnTimerUpdated(float oldTime, float newTime)
     {
-        UpdateUI();
     }
 
     private void OnKillsUpdated(int oldKills, int newKills)
     {
-        UpdateUI();
     }
 
     private void OnKillsUpdated1(int oldKills, int newKills)
+    {
+    }
+
+    private void Update()
     {
         UpdateUI();
     }

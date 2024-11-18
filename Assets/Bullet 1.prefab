@@ -49,8 +49,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 257901a46ced343d6a7c21579b61c79b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  id: player
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0
   bulletDamage: 10
+  shooterId: 0
 --- !u!212 &856623730395010133
 SpriteRenderer:
   m_ObjectHideFlags: 0
@@ -188,7 +191,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   sceneId: 0
-  _assetId: 711908001
+  _assetId: 3517030785
   serverOnly: 0
   visibility: 0
   hasSpawned: 0
