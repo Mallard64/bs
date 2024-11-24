@@ -138,7 +138,7 @@ public class Enemy : NetworkBehaviour
     public void TakeDamage(int damage)
     {
         regainHealth = 0f;
-        if (health <= 0)
+        if (health <= 0 && SceneManager.GetActiveScene().name == "Knockout")
         {
             if (!hx)
             {

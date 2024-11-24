@@ -11,6 +11,8 @@ public class CustomNetworkManager1 : NetworkManager
     public GameObject archerPrefab;
     public GameObject throwerPrefab;
     public GameObject background;
+    public GameObject goal;
+    public GameObject goal1;
     public Vector3 t;
     public List<Vector3> spawnPoints; // All spawn points
     public List<TextMeshProUGUI> texts; // All spawn points
@@ -133,6 +135,11 @@ public class CustomNetworkManager1 : NetworkManager
         base.Update();
         if ((SceneManager.GetActiveScene().name == "Knockout" || SceneManager.GetActiveScene().name == "Knockout 1") && oldScene != SceneManager.GetActiveScene().name)
         {
+            if (SceneManager.GetActiveScene().name == "Knockout 1")
+            {
+                Instantiate(goal, new Vector3(-10,-24,0), Quaternion.identity);
+                Instantiate(goal1, new Vector3(-10, 24, 0), Quaternion.identity);
+            }
             Instantiate(background);
             NetworkServer.RegisterHandler<PlayerMessage>(OnCreatePlayer);
         }
