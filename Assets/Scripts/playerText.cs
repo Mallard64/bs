@@ -34,6 +34,7 @@ public class GameStatsManager : NetworkBehaviour
             
             gameTime = 0f;
             kills = 0;
+            kills1 = 0;
             
         }
         UpdateUI();
@@ -52,12 +53,20 @@ public class GameStatsManager : NetworkBehaviour
     public void AddKill()
     {
         kills += 1;
+        if (kills >= 2 && SceneManager.GetActiveScene().name == "Knockout 1")
+        {
+            gameTime = 120f;
+        }
     }
 
     [Server]
     public void AddKill1()
     {
         kills1 += 1;
+        if (kills1 >= 2 && SceneManager.GetActiveScene().name == "Knockout 1")
+        {
+            gameTime = 120f;
+        }
     }
 
     private void OnTimerUpdated(float oldTime, float newTime)

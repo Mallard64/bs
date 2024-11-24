@@ -399,7 +399,7 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  moveSpeed: 5
+  moveSpeed: 3
   rb: {fileID: 3117468236244017380}
 --- !u!114 &8081096804098108300
 MonoBehaviour:
@@ -422,7 +422,7 @@ MonoBehaviour:
   bulletSpeed: 30
   maxShootDistance: 100
   maxAmmo: 4
-  bulletLifetime: 6
+  bulletLifetime: 5
   lineRenderer: {fileID: 5676126698771483985}
   reloadTime: 5
   playerHP: 110
@@ -629,7 +629,7 @@ BoxCollider2D:
     adaptiveTiling: 0
   m_AutoTiling: 0
   serializedVersion: 2
-  m_Size: {x: 1, y: 1}
+  m_Size: {x: 2, y: 2}
   m_EdgeRadius: 0
 --- !u!50 &3117468236244017380
 Rigidbody2D:

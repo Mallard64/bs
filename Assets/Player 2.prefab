@@ -296,6 +296,7 @@ MonoBehaviour:
   assignedSpawnPoint: {x: 0, y: 0, z: 0}
   numPlayers: 0
   hx: 0
+  regainHealth: 0
 --- !u!114 &-5587294770490662518
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -340,7 +341,7 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  moveSpeed: 13
+  moveSpeed: 7
   rb: {fileID: 3117468236244017380}
 --- !u!212 &7741182206367089162
 SpriteRenderer:
@@ -541,7 +542,7 @@ BoxCollider2D:
     adaptiveTiling: 0
   m_AutoTiling: 0
   serializedVersion: 2
-  m_Size: {x: 1, y: 1}
+  m_Size: {x: 2, y: 2}
   m_EdgeRadius: 0
 --- !u!50 &3117468236244017380
 Rigidbody2D:
