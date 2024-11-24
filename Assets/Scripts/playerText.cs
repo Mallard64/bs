@@ -7,13 +7,10 @@ using UnityEngine.SceneManagement;
 
 public class GameStatsManager : NetworkBehaviour
 {
-    [SyncVar(hook = nameof(OnTimerUpdated))]
     public float gameTime;
 
-    [SyncVar(hook = nameof(OnKillsUpdated))]
     public int kills;
 
-    [SyncVar(hook = nameof(OnKillsUpdated1))]
     public int kills1;
 
     public string h;
@@ -49,7 +46,7 @@ public class GameStatsManager : NetworkBehaviour
         }
     }
 
-    [Server]
+    //[Server]
     public void AddKill()
     {
         kills += 1;
@@ -59,7 +56,7 @@ public class GameStatsManager : NetworkBehaviour
         }
     }
 
-    [Server]
+    //[Server]
     public void AddKill1()
     {
         kills1 += 1;
