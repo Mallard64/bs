@@ -23,6 +23,7 @@ public class CustomNetworkManager1 : NetworkManager
     string oldScene = "";
     private int nextSpawnIndex = 0;
 
+
     public override void Start()
     {
         base.Start();
@@ -140,7 +141,7 @@ public class CustomNetworkManager1 : NetworkManager
                 Instantiate(goal, new Vector3(-10,-24,0), Quaternion.identity);
                 Instantiate(goal1, new Vector3(-10, 24, 0), Quaternion.identity);
             }
-            Instantiate(background);
+            //Instantiate(background);
             NetworkServer.RegisterHandler<PlayerMessage>(OnCreatePlayer);
         }
         oldScene = SceneManager.GetActiveScene().name;

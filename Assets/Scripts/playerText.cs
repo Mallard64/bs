@@ -25,41 +25,26 @@ public class GameStatsManager : NetworkBehaviour
 
     void Start()
     {
-        StartCoroutine(UpdateTime());
-        if (isServer)
-        {
-            
-            gameTime = 0f;
-            kills = 0;
-            kills1 = 0;
-            
-        }
+        gameTime = 0f;
+        kills = 0;
+        kills1 = 0;
         UpdateUI();
     }
 
-    private System.Collections.IEnumerator UpdateTime()
-    {
-        while (true)
-        {
-            yield return new WaitForSeconds(updateInterval);
-            gameTime += updateInterval;
-        }
-    }
-
-    //[Server]
     public void AddKill()
     {
         kills += 1;
+        Debug.Log("Add kill1+");
         if (kills >= 2 && SceneManager.GetActiveScene().name == "Knockout 1")
         {
             gameTime = 120f;
         }
     }
 
-    //[Server]
     public void AddKill1()
     {
         kills1 += 1;
+        Debug.Log("Add kill+");
         if (kills1 >= 2 && SceneManager.GetActiveScene().name == "Knockout 1")
         {
             gameTime = 120f;
@@ -80,6 +65,14 @@ public class GameStatsManager : NetworkBehaviour
 
     private void Update()
     {
+        if (FindObjectsOfType<Enemy>().Length < 2)
+        {
+            gameTime = 0;
+        }
+        else
+        {
+            gameTime += Time.deltaTime;
+        }
         UpdateUI();
     }
 

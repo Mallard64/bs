@@ -3,6 +3,10 @@ using UnityEngine.SceneManagement;
 
 public class CharacterSelection1 : MonoBehaviour
 {
+    public void Start()
+    {
+        PlayerPrefs.SetInt("team", -11);
+    }
     // Called when the player clicks on a character button
     public void SelectCharacter(int index)
     {
@@ -13,9 +17,18 @@ public class CharacterSelection1 : MonoBehaviour
         LoadGame(index);
     }
 
+    public void SelectTeam(int index)
+    {
+        PlayerPrefs.SetInt("team", index);
+    }
+
     // Method to load the game scene
     public void LoadGame(int index)
     {
+        if (PlayerPrefs.GetInt("team") == -11)
+        {
+            return;
+        }
         if (index == 1)
         {
             SceneManager.LoadScene("Knockout");
