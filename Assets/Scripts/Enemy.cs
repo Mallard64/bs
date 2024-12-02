@@ -78,9 +78,9 @@ public class Enemy : NetworkBehaviour
 
     void Update()
     {
-        if (isLocalPlayer)
+        if (health <= 0 && SceneManager.GetActiveScene().name == "Knockout")
         {
-            if (health <= 0 && SceneManager.GetActiveScene().name == "Knockout")
+            if (NetworkClient.localPlayer.gameObject.GetComponent<Enemy>().connectionId != connectionId)
             {
                 if (!hx)
                 {
@@ -92,8 +92,25 @@ public class Enemy : NetworkBehaviour
                     pt.AddKill();
                     Debug.Log("Add kill");
                 }
-                return;
             }
+            else
+            {
+                if (!hx)
+                {
+                    pt.AddKill();
+                    Debug.Log("Add kill1");
+                }
+                else
+                {
+                    pt.AddKill1();
+                    Debug.Log("Add kill");
+                }
+            }
+        }
+        if (isLocalPlayer)
+        {
+            
+            
             //if (FindObjectsOfType<Enemy>().Length % 2 == 0)
             //{
             //    pt.killsText1.color = Color.white;
@@ -181,10 +198,10 @@ public class Enemy : NetworkBehaviour
 
     IEnumerator RespawnPlayer()
     {
-        
+        health = maxHealth;
         RpcDisablePlayer();
         yield return new WaitForSeconds(respawnTime);
-        health = maxHealth;
+        
         
         Debug.Log("RESPAWN LOCATION: " + transform.position);
         RpcEnablePlayer();

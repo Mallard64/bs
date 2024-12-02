@@ -35,7 +35,7 @@ public class GameStatsManager : NetworkBehaviour
     {
         kills += 1;
         Debug.Log("Add kill1+");
-        if (kills >= 2 && SceneManager.GetActiveScene().name == "Knockout 1")
+        if ((kills >= 2 || kills1 >= 2) && SceneManager.GetActiveScene().name == "Knockout 1")
         {
             gameTime = 120f;
         }
@@ -45,7 +45,7 @@ public class GameStatsManager : NetworkBehaviour
     {
         kills1 += 1;
         Debug.Log("Add kill+");
-        if (kills1 >= 2 && SceneManager.GetActiveScene().name == "Knockout 1")
+        if ((kills >= 2 || kills1 >= 2) && SceneManager.GetActiveScene().name == "Knockout 1")
         {
             gameTime = 120f;
         }

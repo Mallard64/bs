@@ -10,31 +10,6 @@ public class Bullet : NetworkBehaviour
     private void OnCollisionEnter2D(Collision2D collision)
     {
         Enemy enemy = collision.gameObject.GetComponent<Enemy>();
-        if (shooterId != -1 && enemy != null && enemy.connectionId != shooterId && enemy.health - bulletDamage <= 0)
-        {
-            if (NetworkClient.localPlayer.gameObject.GetComponent<Enemy>().hx == enemy.hx)
-            {
-                if (enemy.hx)
-                {
-                    enemy.pt.AddKill1();
-                }
-                else
-                {
-                    enemy.pt.AddKill();
-                }
-            }
-            else
-            {
-                if (enemy.hx)
-                {
-                    enemy.pt.AddKill();
-                }
-                else
-                {
-                    enemy.pt.AddKill1();
-                }
-            }
-        } 
         // Only the server should handle damage
         if (!isServer) return;
 

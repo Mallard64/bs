@@ -7,6 +7,7 @@ public class goalscript : NetworkBehaviour
 {
     public GameStatsManager pt;
     public bool playernum;
+    public int playern;
     // Start is called before the first frame update
     void Start()
     {
@@ -32,13 +33,31 @@ public class goalscript : NetworkBehaviour
             {
                 e[i].health = 0;
             }
-            if (playernum)
+            if (NetworkClient.localPlayer.gameObject.GetComponent<Enemy>().connectionId != playern)
             {
-                pt.AddKill();
+                if (!playernum)
+                {
+                    pt.AddKill1();
+                    Debug.Log("Add kill1");
+                }
+                else
+                {
+                    pt.AddKill();
+                    Debug.Log("Add kill");
+                }
             }
             else
             {
-                pt.AddKill1();
+                if (!playernum)
+                {
+                    pt.AddKill();
+                    Debug.Log("Add kill1");
+                }
+                else
+                {
+                    pt.AddKill1();
+                    Debug.Log("Add kill");
+                }
             }
         }
     }
