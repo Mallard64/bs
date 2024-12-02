@@ -19,9 +19,10 @@ public class Enemy : NetworkBehaviour
     public int connectionId; // Store the player's connection ID for consistency
     public Vector3 assignedSpawnPoint; // Store the player's assigned spawn point
     public int numPlayers;
-    GameStatsManager pt;
+    public GameStatsManager pt;
 
-    public bool hx = false;
+    public bool hx;
+
 
     public float regainHealth = 0f;
 
@@ -59,17 +60,17 @@ public class Enemy : NetworkBehaviour
         {
             Debug.LogError("Failed to assign a spawn point.");
         }
+        hx = PlayerPrefs.GetInt("team") % 2 == 0;
         if (isLocalPlayer)
         {
-            if (FindObjectsOfType<Enemy>().Length % 2 == 0)
+            
+            if (hx)
             {
                 pt.killsText.color = Color.red;
-                hx = true;
             }
             else
             {
                 pt.killsText1.color = Color.red;
-                hx = false;
             }
         }
         
@@ -79,6 +80,32 @@ public class Enemy : NetworkBehaviour
     {
         if (isLocalPlayer)
         {
+            if (health <= 0 && SceneManager.GetActiveScene().name == "Knockout")
+            {
+                if (!hx)
+                {
+                    pt.AddKill1();
+                    Debug.Log("Add kill1");
+                }
+                else
+                {
+                    pt.AddKill();
+                    Debug.Log("Add kill");
+                }
+                return;
+            }
+            //if (FindObjectsOfType<Enemy>().Length % 2 == 0)
+            //{
+            //    pt.killsText1.color = Color.white;
+            //    pt.killsText.color = Color.red;
+            //    hx = true;
+            //}
+            //else
+            //{
+            //    pt.killsText.color = Color.white;
+            //    pt.killsText1.color = Color.red;
+            //    hx = false;
+            //}
             if (pt.gameTime >= 120)
             {
                 if (hx)
@@ -116,6 +143,7 @@ public class Enemy : NetworkBehaviour
         UpdateHealthColor();
         if (health <= 0)
         {
+            
             transform.position = assignedSpawnPoint;
             StartCoroutine(RespawnPlayer());
         }
@@ -138,19 +166,8 @@ public class Enemy : NetworkBehaviour
     public void TakeDamage(int damage)
     {
         regainHealth = 0f;
-        if (health <= 0 && SceneManager.GetActiveScene().name == "Knockout")
-        {
-            if (!hx)
-            {
-                pt.AddKill();
-            }
-            else
-            {
-                pt.AddKill1();
-            }
-            return;
-        }
         health -= damage;
+        
 
         SetVisibility(true);
         StartCoroutine(ShowFace());
