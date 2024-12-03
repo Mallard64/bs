@@ -52,7 +52,7 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  bulletDamage: 10
+  bulletDamage: 30
   shooterId: 0
 --- !u!212 &856623730395010133
 SpriteRenderer:

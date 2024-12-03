@@ -6,6 +6,7 @@ using Mirror;
 
 public class MouseShooting2 : MouseShooting
 {
+    public GameObject explosionRadius;
     // Command that runs on the server to handle shooting, now receives direction from client
     [Command]
     public override void CmdShoot(Vector3 direction)
@@ -45,5 +46,38 @@ public class MouseShooting2 : MouseShooting
         // Calculate the angle and rotate the aiming sprite
         float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
         aimingSprite.transform.rotation = Quaternion.Euler(new Vector3(0, 0, angle+90));
+    }
+
+    [Command]
+    public override void CmdSuper(Vector3 direction)
+    {
+        GetComponent<PlayerMovement>().moveSpeed = GetComponent<PlayerMovement>().moveSpeed * 1.5f;
+    }
+
+
+    [Command]
+    public override void Q()
+    {
+        currentAmmo++;
+        qTimer = qTimerOriginal;
+    }
+
+    [Command]
+    public override void E()
+    {
+        Vector3 spawnPosition = firePoint.position;
+        GameObject bullet = Instantiate(explosionRadius, spawnPosition, Quaternion.identity);
+
+        // Assign the player's ID to the bullet's shooterId
+        bullet.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+
+        GetComponent<Enemy>().health = 0;
+
+        NetworkServer.Spawn(bullet);
+
+        bullet.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+
+        Destroy(bullet, 0.05f);
+        eTimer = eTimerOriginal;
     }
 }

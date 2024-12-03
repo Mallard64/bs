@@ -139,7 +139,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 3, y: 0.3, z: 1}
+  m_LocalScale: {x: 15, y: 0.3, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 4075425287797970096}
@@ -376,6 +376,7 @@ MonoBehaviour:
   maxHealth: 100
   spriteRenderer: {fileID: 7741182206367089162}
   respawnTime: 3
+  oldHP: 0
   connectionId: 0
   assignedSpawnPoint: {x: 0, y: 0, z: 0}
   numPlayers: 0
@@ -415,16 +416,30 @@ MonoBehaviour:
   syncMode: 0
   syncInterval: 0
   bulletPrefab: {fileID: 3393839604986813093, guid: 99cbbf48850644943b2a64eed4ca5519, type: 3}
+  superPrefab: {fileID: 3393839604986813093, guid: 8a516cc6109b645628ed7815074e82bb, type: 3}
   firePoint: {fileID: 4075425287797970096}
   playerCamera: {fileID: 3183439581629459433}
-  bulletSpeed: 20
+  bulletSpeed: 30
   maxShootDistance: 100
   maxAmmo: 3
-  bulletLifetime: 2
+  bulletLifetime: 1.5
   lineRenderer: {fileID: 5676126698771483985}
   reloadTime: 2
   playerHP: 100
+  maxSuper: 4
+  superCharge: 0
+  q: 3
+  e: 3
+  shotTimerOriginal: 0.6
+  shotTimer: 0
+  qTimerOriginal: 2
+  qTimer: 0
+  eTimerOriginal: 2
+  eTimer: 0
   ammoText: {fileID: 966038063228036158}
+  superText: {fileID: 0}
+  qText: {fileID: 0}
+  eText: {fileID: 0}
   aimingSprite: {fileID: 1561924673727062441}
   currentAmmo: 0
   isReloading: 0
