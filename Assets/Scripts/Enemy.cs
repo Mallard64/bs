@@ -14,6 +14,7 @@ public class Enemy : NetworkBehaviour
     public float maxHealth = 100;
     public SpriteRenderer spriteRenderer;
     public float respawnTime = 3f;
+    public float oldHP;
 
     private CustomNetworkManager1 networkManager;
     public int connectionId; // Store the player's connection ID for consistency
@@ -46,7 +47,7 @@ public class Enemy : NetworkBehaviour
         pt = FindObjectOfType<GameStatsManager>();
         health = maxHealth;
         networkManager = (CustomNetworkManager1)NetworkManager.singleton;
-
+        oldHP = health;
         System.Random r = new System.Random();
         connectionId = r.Next(10000000);
 
@@ -76,8 +77,29 @@ public class Enemy : NetworkBehaviour
         
     }
 
+    private void OnCollisionEnter2D(Collision2D collision)
+    {
+        Debug.Log("Bongo bongo hit");
+        if (collision.gameObject.GetComponent<Bullet>() != null && collision.gameObject.GetComponent<Bullet>().shooterId != connectionId)
+        {
+            Debug.Log("bengo bengo hit");
+            if (NetworkClient.localPlayer.gameObject.GetComponent<Enemy>().connectionId == collision.gameObject.GetComponent<Bullet>().shooterId)
+            {
+                Debug.Log("bingo bingo hit");
+                NetworkClient.localPlayer.gameObject.GetComponent<MouseShooting>().superCharge++;
+            }
+        }
+    }
+
     void Update()
     {
+        if (oldHP > health)
+        {
+            if (NetworkClient.localPlayer.gameObject.GetComponent<Enemy>().connectionId != connectionId)
+            {
+                NetworkClient.localPlayer.gameObject.GetComponent<MouseShooting>().superCharge++;
+            }
+        }
         if (health <= 0 && SceneManager.GetActiveScene().name == "Knockout")
         {
             if (NetworkClient.localPlayer.gameObject.GetComponent<Enemy>().connectionId != connectionId)
@@ -172,12 +194,14 @@ public class Enemy : NetworkBehaviour
         {
             health += Time.deltaTime * 5f;
         }
+        oldHP = health;
     }
 
     void OnVisibilityChanged(bool oldVisibility, bool newVisibility)
     {
         spriteRenderer.enabled = newVisibility;
     }
+
 
     [Server]
     public void TakeDamage(int damage)
