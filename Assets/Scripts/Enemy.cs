@@ -93,14 +93,7 @@ public class Enemy : NetworkBehaviour
 
     void Update()
     {
-        if (oldHP > health)
-        {
-            if (NetworkClient.localPlayer.gameObject.GetComponent<Enemy>().connectionId != connectionId)
-            {
-                NetworkClient.localPlayer.gameObject.GetComponent<MouseShooting>().superCharge++;
-            }
-        }
-        if (health <= 0 && SceneManager.GetActiveScene().name == "Knockout")
+        if (oldHP < health) //&& SceneManager.GetActiveScene().name == "Knockout")
         {
             if (NetworkClient.localPlayer.gameObject.GetComponent<Enemy>().connectionId != connectionId)
             {
@@ -128,7 +121,17 @@ public class Enemy : NetworkBehaviour
                     Debug.Log("Add kill");
                 }
             }
+            oldHP = health;
         }
+        if (oldHP > health)
+        {
+            if (NetworkClient.localPlayer.gameObject.GetComponent<Enemy>().connectionId != connectionId)
+            {
+                NetworkClient.localPlayer.gameObject.GetComponent<MouseShooting>().superCharge++;
+            }
+            oldHP = health;
+        }
+        
         if (isLocalPlayer)
         {
             
