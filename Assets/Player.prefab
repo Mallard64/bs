@@ -417,6 +417,7 @@ MonoBehaviour:
   syncInterval: 0
   bulletPrefab: {fileID: 3393839604986813093, guid: 99cbbf48850644943b2a64eed4ca5519, type: 3}
   superPrefab: {fileID: 3393839604986813093, guid: 8a516cc6109b645628ed7815074e82bb, type: 3}
+  smallbulletPrefab: {fileID: 3393839604986813093, guid: 3c1170eea83064e9694f6ca26f94c3da, type: 3}
   firePoint: {fileID: 4075425287797970096}
   playerCamera: {fileID: 3183439581629459433}
   bulletSpeed: 30
