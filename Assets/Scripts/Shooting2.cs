@@ -77,7 +77,7 @@ public class MouseShooting2 : MouseShooting
 
         bullet.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
 
-        Destroy(bullet, 0.05f);
+        Destroy(bullet, 0.2f);
         eTimer = eTimerOriginal;
     }
 }

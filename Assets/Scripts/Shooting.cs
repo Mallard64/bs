@@ -8,6 +8,7 @@ public class MouseShooting : NetworkBehaviour
 {
     public GameObject bulletPrefab;
     public GameObject superPrefab;
+    public GameObject smallbulletPrefab;
     public Transform firePoint;
     public Camera playerCamera;  // Use this to directly reference the player's camera
     public float bulletSpeed = 10f;
@@ -121,7 +122,7 @@ public class MouseShooting : NetworkBehaviour
         eTimer -= Time.deltaTime;
     }
 
-    void Shoot()
+    public virtual void Shoot()
     {
         currentAmmo--;
         Vector3 mousePosition = playerCamera.ScreenToWorldPoint(new Vector3(Input.mousePosition.x, Input.mousePosition.y, playerCamera.nearClipPlane));
@@ -179,7 +180,7 @@ public class MouseShooting : NetworkBehaviour
             Vector3 spawnPosition = firePoint.position + rotatedDirection * 0.6f;
 
             // Instantiate the bullet
-            GameObject bullet = Instantiate(bulletPrefab, spawnPosition, Quaternion.identity);
+            GameObject bullet = Instantiate(smallbulletPrefab, spawnPosition, Quaternion.identity);
             Debug.Log("Instantiated bullet at angle: " + (90 * i));
 
             // Set the bullet's velocity and assign shooter ID

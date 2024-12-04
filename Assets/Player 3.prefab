@@ -375,6 +375,7 @@ MonoBehaviour:
   maxHealth: 80
   spriteRenderer: {fileID: 7741182206367089162}
   respawnTime: 3
+  oldHP: 0
   connectionId: 0
   assignedSpawnPoint: {x: 0, y: 0, z: 0}
   numPlayers: 0
@@ -414,6 +415,8 @@ MonoBehaviour:
   syncMode: 0
   syncInterval: 0
   bulletPrefab: {fileID: 3393839604986813093, guid: a959be459bb864fe59091fade33bf0ee, type: 3}
+  superPrefab: {fileID: 0}
+  smallbulletPrefab: {fileID: 0}
   firePoint: {fileID: 4075425287797970096}
   playerCamera: {fileID: 3183439581629459433}
   bulletSpeed: 280
@@ -423,10 +426,26 @@ MonoBehaviour:
   lineRenderer: {fileID: 5676126698771483985}
   reloadTime: 2
   playerHP: 100
+  maxSuper: 5
+  superCharge: 0
+  q: 3
+  e: 3
+  shotTimerOriginal: 1
+  shotTimer: 0
+  qTimerOriginal: 2
+  qTimer: 0
+  eTimerOriginal: 2
+  eTimer: 0
   ammoText: {fileID: 966038063228036158}
+  superText: {fileID: 0}
+  qText: {fileID: 0}
+  eText: {fileID: 0}
   aimingSprite: {fileID: 2525905709143487229}
   currentAmmo: 0
   isReloading: 0
+  wall: {fileID: 4378453895143029390, guid: c3deb925116a94b46a484986a1c61d20, type: 3}
+  shotmultiplier: 1
+  speedmultiplier: 1
 --- !u!212 &7741182206367089162
 SpriteRenderer:
   m_ObjectHideFlags: 0
