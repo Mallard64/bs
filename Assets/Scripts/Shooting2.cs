@@ -72,6 +72,7 @@ public class MouseShooting2 : MouseShooting
         bullet.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
 
         GetComponent<Enemy>().health = 0;
+        GetComponent<Enemy>().TakeDamage(100);
 
         NetworkServer.Spawn(bullet);
 
