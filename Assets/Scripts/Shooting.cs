@@ -32,6 +32,10 @@ public class MouseShooting : NetworkBehaviour
     public float eTimerOriginal;
     public float eTimer;
 
+    public string AnimationName;
+
+    public GameObject weapon;
+
     // UI Elements
     public TextMeshProUGUI ammoText;
     public TextMeshProUGUI superText;
@@ -124,6 +128,21 @@ public class MouseShooting : NetworkBehaviour
 
     public virtual void Shoot()
     {
+        if (weapon != null)
+        {
+            // Get the Animator component from the target object
+            Animator targetAnimator = weapon.GetComponent<Animator>();
+
+            // Check if the target object has an Animator
+            if (targetAnimator != null)
+            {
+                targetAnimator.Play(AnimationName);  // Play the specified animation
+            }
+            else
+            {
+                Debug.LogWarning("No Animator found on the target GameObject: " + weapon.name);
+            }
+        }
         currentAmmo--;
         Vector3 mousePosition = playerCamera.ScreenToWorldPoint(new Vector3(Input.mousePosition.x, Input.mousePosition.y, playerCamera.nearClipPlane));
         mousePosition.z = 0f;  // Set Z position for 2D calculations
@@ -139,6 +158,21 @@ public class MouseShooting : NetworkBehaviour
 
     void Super()
     {
+        if (weapon != null)
+        {
+            // Get the Animator component from the target object
+            Animator targetAnimator = weapon.GetComponent<Animator>();
+
+            // Check if the target object has an Animator
+            if (targetAnimator != null)
+            {
+                targetAnimator.Play(AnimationName);  // Play the specified animation
+            }
+            else
+            {
+                Debug.LogWarning("No Animator found on the target GameObject: " + weapon.name);
+            }
+        }
         superCharge = 0;
         Vector3 mousePosition = playerCamera.ScreenToWorldPoint(new Vector3(Input.mousePosition.x, Input.mousePosition.y, playerCamera.nearClipPlane));
         mousePosition.z = 0f;  // Set Z position for 2D calculations
@@ -277,9 +311,15 @@ public class MouseShooting : NetworkBehaviour
         Vector3 direction = (mousePosition - firePoint.position).normalized;
         aimingSprite.SetActive(true);
         aimingSprite.transform.position = firePoint.position;
+        weapon.transform.position = firePoint.position;
 
         // Calculate the angle and rotate the aiming sprite
         float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
         aimingSprite.transform.rotation = Quaternion.Euler(new Vector3(0, 0, angle));
+        if ((angle + 360) % 360 > 180)
+        {
+            weapon.GetComponent<SpriteRenderer>().flipY = true;
+        }
+        weapon.transform.rotation = Quaternion.Euler(new Vector3(0, 0, angle));
     }
 }
