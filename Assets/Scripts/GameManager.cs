@@ -25,6 +25,7 @@ public class GameManager : MonoBehaviour
     {
         // Optionally, load the selected character at the start of the game
         LoadSelectedCharacter();
+        Debug.Log("the weather is rizzy the fire is so skibidi");
     }
 
     // Method to load the selected character
