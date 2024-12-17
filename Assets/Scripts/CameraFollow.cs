@@ -14,7 +14,6 @@ public class CameraFollow : NetworkBehaviour
     {
         // Find the player's camera and disable it for non-local players
         playerCamera = GetComponent<Camera>();
-        
 
         // Make sure the camera is only enabled for the local player
         if (!isLocalPlayer)
@@ -39,5 +38,10 @@ public class CameraFollow : NetworkBehaviour
         {
             playerCamera.transform.position = target.position + offset;
         }
+    }
+
+    private void Update()
+    {
+        transform.rotation = Quaternion.Euler(0, 0, 0);
     }
 }

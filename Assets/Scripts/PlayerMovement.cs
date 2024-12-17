@@ -1,27 +1,62 @@
 using UnityEngine;
 using Mirror;  // Add Mirror namespace
 
-public class PlayerMovement : NetworkBehaviour  // Extend NetworkBehaviour instead of MonoBehaviour
+public class PlayerMovement : NetworkBehaviour  // Extend NetworkBehaviour
 {
-    public float moveSpeed = 5f;
-    public Rigidbody2D rb;
+    public float moveSpeed = 5f;    // Movement speed
+    public Rigidbody2D rb;          // Reference to Rigidbody2D
 
-    Vector2 movement;
+    private Vector2 movement;       // Movement input
+    private Animator animator;      // Animator reference
+    private SpriteRenderer spriteRenderer;
+    public Transform cameraTransform; // To lock camera rotation
+    public string name;
+
+    void Start()
+    {
+        // Get the Animator component
+        animator = GetComponent<Animator>();
+        spriteRenderer = GetComponent<SpriteRenderer>();
+    }
 
     void Update()
     {
-        // Only allow the local player to move their own character
+        if (movement.magnitude > 0)
+        {
+            if (movement.x > 0) spriteRenderer.flipX = false;  // Face right
+            else if (movement.x < 0) spriteRenderer.flipX = true;  // Face left
+        }
         if (!isLocalPlayer)
         {
-            return;  // Exit if this is not the local player's object
+            return; // Exit if this is not the local player's object
+        }
+        // Lock the camera's rotation permanently at 0, 0, 0
+        if (cameraTransform != null)
+        {
+            cameraTransform.rotation = Quaternion.Euler(0, 0, 0);
         }
 
-        // Get input from WASD or arrow keys
+        // Only allow the local player to move and animate their own character
+        
+
+        // Get input from WASD or Arrow Keys
         float moveX = Input.GetAxisRaw("Horizontal");
         float moveY = Input.GetAxisRaw("Vertical");
 
-        // Update movement using Vector2 (for 2D)
+        // Update movement vector
         movement = new Vector2(moveX, moveY).normalized;
+
+        // Check if moving and set the appropriate animation
+        if (movement.magnitude > 0)
+        {
+            if (movement.x > 0) spriteRenderer.flipX = false;  // Face right
+            else if (movement.x < 0) spriteRenderer.flipX = true;  // Face left
+            animator.Play(name+"_walk");  // Play walk animation
+        }
+        else
+        {
+            animator.Play(name+"_idle");  // Play idle animation
+        }
     }
 
     void FixedUpdate()
@@ -32,7 +67,7 @@ public class PlayerMovement : NetworkBehaviour  // Extend NetworkBehaviour inste
             return;
         }
 
-        // Apply movement directly to Rigidbody2D using velocity
+        // Move the player using Rigidbody2D
         rb.velocity = movement * moveSpeed;
     }
 }
