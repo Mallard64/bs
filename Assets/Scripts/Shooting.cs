@@ -316,9 +316,13 @@ public class MouseShooting : NetworkBehaviour
         // Calculate the angle and rotate the aiming sprite
         float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
         aimingSprite.transform.rotation = Quaternion.Euler(new Vector3(0, 0, angle));
-        if ((angle + 360) % 360 > 180)
+        if ((angle + 360) % 360 > 90 && (angle + 360) % 360 < 270)
         {
             weapon.GetComponent<SpriteRenderer>().flipY = true;
+        }
+        else
+        {
+            weapon.GetComponent<SpriteRenderer>().flipY = false;
         }
         weapon.transform.rotation = Quaternion.Euler(new Vector3(0, 0, angle));
     }
