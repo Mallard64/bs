@@ -9,7 +9,7 @@ public class MouseShootingv1 : MonoBehaviour
     public GameObject superPrefab;
     public GameObject smallbulletPrefab;
     public Transform firePoint;
-    public Camera playerCamera = Camera.main;  // Use this to directly reference the player's camera
+    public Camera playerCamera;  // Use this to directly reference the player's camera
     public float bulletSpeed = 10f;
     public float maxShootDistance = 50f;
     public int maxAmmo = 3;
@@ -48,6 +48,7 @@ public class MouseShootingv1 : MonoBehaviour
 
     void Start()
     {
+        playerCamera = Camera.main;
         aimingSprite.SetActive(false);
 
         currentAmmo = maxAmmo; // Initialize ammo for the local player
