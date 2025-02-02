@@ -5,25 +5,28 @@ EditorBuildSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 2
   m_Scenes:
-  - enabled: 0
+  - enabled: 1
+    path: Assets/New Scene.unity
+    guid: dcb09bde362a049ef9091810957659ab
+  - enabled: 1
     path: Assets/select.unity
     guid: ae174daaa578a4905a58d8e0999d016a
-  - enabled: 0
+  - enabled: 1
     path: Assets/select 1.unity
     guid: 1f91e7e20adf247868147eff16cb9c8c
   - enabled: 1
     path: Assets/Knockout.unity
     guid: 2cda990e2423bbf4892e6590ba056729
-  - enabled: 0
+  - enabled: 1
     path: Assets/Knockout 1.unity
     guid: ceac700afb21e4fae80bc34fe39e1ba6
-  - enabled: 0
+  - enabled: 1
     path: Assets/Lose.unity
     guid: e24b87fe265374810b852892b4043249
-  - enabled: 0
+  - enabled: 1
     path: Assets/Win.unity
     guid: 75e76af0f8e46475282dbea63afb52a8
-  - enabled: 0
+  - enabled: 1
     path: Assets/Tie.unity
     guid: 8416cf911096049cb942af36534bc613
   m_configObjects: {}

@@ -17,7 +17,7 @@ public class MouseShooting : NetworkBehaviour
     public float bulletLifetime = 3f;
     public LineRenderer lineRenderer;
     public float reloadTime = 2f;
-    public int playerHP = 100;
+    public int playerHP;
     public int maxSuper;
     public int superCharge;
     public int q = 3;
@@ -316,6 +316,7 @@ public class MouseShooting : NetworkBehaviour
         // Calculate the angle and rotate the aiming sprite
         float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
         aimingSprite.transform.rotation = Quaternion.Euler(new Vector3(0, 0, angle));
+        weapon.transform.rotation = Quaternion.Euler(new Vector3(0, 0, angle));
         if ((angle + 360) % 360 > 90 && (angle + 360) % 360 < 270)
         {
             weapon.GetComponent<SpriteRenderer>().flipY = true;
@@ -324,6 +325,6 @@ public class MouseShooting : NetworkBehaviour
         {
             weapon.GetComponent<SpriteRenderer>().flipY = false;
         }
-        weapon.transform.rotation = Quaternion.Euler(new Vector3(0, 0, angle));
+        
     }
 }
