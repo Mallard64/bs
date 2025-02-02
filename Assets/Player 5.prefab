@@ -719,6 +719,7 @@ GameObject:
   - component: {fileID: 2753943760237521436}
   - component: {fileID: 3117468236244017380}
   - component: {fileID: -5610539726793669306}
+  - component: {fileID: 5401982687918357664}
   m_Layer: 0
   m_Name: Player 5
   m_TagString: Untagged
@@ -1053,6 +1054,23 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &5401982687918357664
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2962604456336756810}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b91ecbcc199f4492b9a91e820070131, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  sceneId: 0
+  _assetId: 2501029265
+  serverOnly: 0
+  visibility: 0
+  hasSpawned: 0
 --- !u!1 &4533127556954174236
 GameObject:
   m_ObjectHideFlags: 0
@@ -1064,7 +1082,6 @@ GameObject:
   - component: {fileID: 646845449878364387}
   - component: {fileID: 700638049850898912}
   - component: {fileID: 8640285396185253423}
-  - component: {fileID: 8575907786951848720}
   m_Layer: 0
   m_Name: sniper
   m_TagString: Untagged
@@ -1160,23 +1177,6 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
---- !u!114 &8575907786951848720
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4533127556954174236}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7f6f3bf89aa97405989c802ba270f815, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  syncDirection: 1
-  syncMode: 0
-  syncInterval: 0
-  clientAuthority: 0
-  animator: {fileID: 8640285396185253423}
 --- !u!1 &8852246935345194878
 GameObject:
   m_ObjectHideFlags: 0

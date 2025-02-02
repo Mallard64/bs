@@ -22,10 +22,12 @@ public class MouseShooting3 : MouseShooting
         {
             return;
         }
-        
+
         if (!isLocalPlayer) return;
         CmdShoot(direction);
         shotTimer = shotTimerOriginal;
+        shotmultiplier = 1;
+        speedmultiplier = 1;
     }
 
 

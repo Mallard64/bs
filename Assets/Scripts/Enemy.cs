@@ -11,14 +11,14 @@ public class Enemy : NetworkBehaviour
     [SyncVar] public float health;
     [SyncVar(hook = nameof(OnVisibilityChanged))] public bool isVisible = true;
 
-    public float maxHealth = 100;
+    public float maxHealth;
     public SpriteRenderer spriteRenderer;
     public float respawnTime = 3f;
     public float oldHP;
 
     private CustomNetworkManager1 networkManager;
     public int connectionId; // Store the player's connection ID for consistency
-    public Vector3 assignedSpawnPoint; // Store the player's assigned spawn point
+    [SyncVar] public Vector3 assignedSpawnPoint; // Store the player's assigned spawn point
     public int numPlayers;
     public GameStatsManager pt;
 
@@ -185,15 +185,13 @@ public class Enemy : NetworkBehaviour
         UpdateHealthColor();
         if (health <= 0)
         {
-            
-            transform.position = assignedSpawnPoint;
             StartCoroutine(RespawnPlayer());
         }
         else
         {
             regainHealth += Time.deltaTime;
         }
-        if (health < 100 && regainHealth >= 5f)
+        if (health < maxHealth - 0.01f && regainHealth >= 5f)
         {
             health += Time.deltaTime * 5f;
         }
@@ -223,15 +221,17 @@ public class Enemy : NetworkBehaviour
         }
     }
 
+    [Server]
     IEnumerator RespawnPlayer()
     {
         health = maxHealth;
         RpcDisablePlayer();
         yield return new WaitForSeconds(respawnTime);
-        
-        
+
+        transform.position = assignedSpawnPoint;
         Debug.Log("RESPAWN LOCATION: " + transform.position);
         RpcEnablePlayer();
+        transform.position = assignedSpawnPoint;
     }
 
     IEnumerator ShowFace()
