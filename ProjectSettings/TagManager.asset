@@ -10,6 +10,8 @@ TagManager:
   - SpawnPoint
   - ball
   - Bullet
+  - Wall
+  - Pickup
   layers:
   - Default
   - TransparentFX
@@ -55,4 +57,7 @@ TagManager:
     locked: 0
   - name: bushes
     uniqueID: 3150228201
+    locked: 0
+  - name: hide in bush
+    uniqueID: 1258882553
     locked: 0
