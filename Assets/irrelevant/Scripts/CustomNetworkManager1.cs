@@ -48,7 +48,12 @@ public class CustomNetworkManager1 : NetworkManager
     public override void Start()
     {
         base.Start();
-        GetComponent<TelepathyTransport>().port = (ushort) PlayerPrefs.GetInt("port");
+        if (PlayerPrefs.GetInt("port") != 0)
+        {
+            GetComponent<TelepathyTransport>().port = (ushort)PlayerPrefs.GetInt("port");
+        }
+        
+
 
         //GetComponent<TelepathyTransport>().address = PlayerPrefs.GetString("address");
 

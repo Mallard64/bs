@@ -134,6 +134,13 @@ public class Enemy : NetworkBehaviour
     void OnCollisionEnter2D(Collision2D col)
     {
         if (!col.collider.CompareTag("Wall") || !isLocalPlayer) return;
+        Vector2 v = GetComponent<Rigidbody2D>().velocity;
+        if (v.magnitude < 30f) return;
+        if (v.magnitude < 60f)
+        {
+            GetComponent<Rigidbody2D>().velocity = -v;
+            return;
+        }
         CmdDieAndRespawn();
     }
 
