@@ -13,9 +13,11 @@ public class PlayerMovement : NetworkBehaviour
     public Transform cameraTransform;  // Camera transform (if needed)
     public string name;                // Player name (for animations)
     public MouseShooting ms;
+    public bool isKeyboard;
 
     void Start()
     {
+        isKeyboard = !Application.isMobilePlatform;
         animator = GetComponent<Animator>();
         ms = GetComponent<MouseShooting>();
         spriteRenderer = GetComponent<SpriteRenderer>();
@@ -26,18 +28,28 @@ public class PlayerMovement : NetworkBehaviour
 
     void Update()
     {
-        
 
+        if (!isLocalPlayer) return;
         // Keep camera rotation fixed
         if (cameraTransform != null)
         {
-            if (!isLocalPlayer) return;
+            
             cameraTransform.rotation = Quaternion.Euler(0, 0, 0);
         }
 
         // Get movement input from the Rigid Joystick
-        float moveX = joystick.Horizontal;
-        float moveY = joystick.Vertical;
+        float moveX, moveY;
+        if (!isKeyboard)
+        {
+            moveX = joystick.Horizontal;
+            moveY = joystick.Vertical;
+        }
+        else
+        {
+            moveX = Input.GetAxis("Horizontal");
+            moveY = Input.GetAxis("Vertical");
+        }
+
         if (ms.isFlipped)
         {
             moveX = -moveX;
@@ -49,15 +61,19 @@ public class PlayerMovement : NetworkBehaviour
 
         // Handle animation & sprite flipping
         if (movement.magnitude > 0)
-        {
-            if (ms.isFlipped)
+        { 
+            if (movement.x > 0.05 || movement.x < -0.05)
             {
-                spriteRenderer.flipX = movement.x > 0;
+                if (ms.isFlipped)
+                {
+                    spriteRenderer.flipX = movement.x > 0;
+                }
+                else
+                {
+                    spriteRenderer.flipX = movement.x < 0;
+                }
             }
-            else
-            {
-                spriteRenderer.flipX = movement.x < 0;
-            }
+            
             
             animator.Play(name + "_walk");         // Play walking animation
         }

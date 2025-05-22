@@ -11,6 +11,8 @@ using System;
 /// </summary>
 public class MouseShooting : NetworkBehaviour
 {
+    public bool isKeyboard = false;
+
     [Header("Weapon Prefabs (0 = none)")]
     public GameObject[] weapons;
 
@@ -70,7 +72,26 @@ public class MouseShooting : NetworkBehaviour
 
     public bool isPressed = false;
 
+    public bool canShoot = true;
+
     public Vector3 v = Vector3.zero;
+
+    public GameObject swap;
+    public GameObject movement;
+    public GameObject shoot;
+
+    private void Start()
+    {
+        isKeyboard = !Application.isMobilePlatform;
+        deactivateMobile(isKeyboard);
+    }
+
+    private void deactivateMobile(bool i)
+    {
+        //swap.SetActive(i);
+        movement.SetActive(i);
+        shoot.SetActive(i);
+    }
 
     #region Initialization
     public override void OnStartClient()
@@ -115,6 +136,14 @@ public class MouseShooting : NetworkBehaviour
 
     void Update()
     {
+        if (isFlipped)
+        {
+            transform.localEulerAngles = new Vector3(0, 0, 0);
+        }
+        else
+        {
+            transform.localEulerAngles = new Vector3(0, 0, 180);
+        }
         if (!isLocalPlayer) return;
         if (isFlipped)
         {
@@ -126,6 +155,8 @@ public class MouseShooting : NetworkBehaviour
         }
         HandleShootingInput();
         UpdateUI();
+
+
     }
     #endregion
 
@@ -179,9 +210,9 @@ public class MouseShooting : NetworkBehaviour
             currentAmmo = newNi.gameObject.GetComponent<Weapon>().maxAmmo;
             maxAmmo = currentAmmo;
         }
-            
-        // Notify clients of slot change
 
+        // Notify clients of slot change
+        wantsPickup = false;
         RpcOnWeaponChanged(oldId, newId);
     }
 
@@ -205,52 +236,148 @@ public class MouseShooting : NetworkBehaviour
     }
     #endregion
 
-    #region Shooting
     private void HandleShootingInput()
     {
-        if (weaponNetId == 0) return;
-        float mag = new Vector2(attackJoystick.Horizontal, attackJoystick.Vertical).magnitude;
-        Vector3 dir = new(attackJoystick.Horizontal, attackJoystick.Vertical, 0f);
-        dir.Normalize();
-        if (isFlipped)
+        if (!canShoot) return;
+        if (!isLocalPlayer) return;
+        if (!isKeyboard)
         {
-            dir = -dir;
-        }
-        v = dir;
-        if (mag <= 0.1f && isPressed && currentAmmo > 0 && !isReloading && shotCooldown <= 0f)
-        {
-            Debug.Log("autoaim");
-            currentAmmo--;
-            d = GetComponent<Autoaim>().FindTarget();
-            if (d.magnitude >= 100000)
+            if (weaponNetId == 0) return;
+            float mag;
+            Vector3 dir;
+            mag = new Vector2(attackJoystick.Horizontal, attackJoystick.Vertical).magnitude;
+            dir = new(attackJoystick.Horizontal, attackJoystick.Vertical, 0f);
+            dir.Normalize();
+            if (isFlipped)
             {
-                d = dir;
+                dir = -dir;
             }
-            isAuto = true;
-            CmdPerformShoot(d);
-            shotCooldown = shotCooldownTime;
-        }
-        else if (mag >= 0.6f && currentAmmo > 0 && !isReloading && shotCooldown <= 0f)
-        {
-            currentAmmo--;
-            CmdPerformShoot(dir);
-            shotCooldown = shotCooldownTime;
-        }
-        if (mag >= 0.11f)
-        {
-            isAiming = true;
-            
+            v = dir;
+            if (mag <= 0.1f && isPressed && currentAmmo > 0 && !isReloading && shotCooldown <= 0f)
+            {
+                Debug.Log("autoaim");
+                currentAmmo--;
+                d = GetComponent<Autoaim>().FindTarget();
+                if (d == Vector3.zero)
+                {
+                    d = dir;
+                }
+                isAuto = true;
+                CmdPerformShoot(d);
+                shotCooldown = shotCooldownTime;
+                return;
+            }
+            else
+            {
+                isAuto = false;
+            }
+
+            if (mag >= 0.6f && currentAmmo > 0 && !isReloading && shotCooldown <= 0f)
+            {
+                currentAmmo--;
+                CmdPerformShoot(dir);
+                shotCooldown = shotCooldownTime;
+            }
+            if (mag >= 0.11f || isKeyboard)
+            {
+                isAiming = true;
+
+            }
+            else
+            {
+                isAiming = false;
+
+            }
+
+            if (currentAmmo <= 0 && !isReloading)
+                StartCoroutine(ReloadRoutine());
+            shotCooldown -= Time.deltaTime;
+            isPressed = false;
         }
         else
         {
-            isAiming = false;
             
+            if (weaponNetId == 0)
+            {
+                isAiming = false;
+                return;
+            }
+            // 3) Gather “fire” + raw direction + magnitude
+            Vector3 rawDir = Vector3.zero;
+            float mag = 0f;
+            bool fire = false;
+
+            // ——— DESKTOP: convert screen→world at the player’s Z-depth ———
+            Vector3 playerScreen = Camera.main.WorldToScreenPoint(transform.position);
+            Vector3 mouseScreen = Input.mousePosition;
+            mouseScreen.z = playerScreen.z;
+
+            Vector3 mouseWorld = Camera.main.ScreenToWorldPoint(mouseScreen);
+            Vector3 delta = mouseWorld - transform.position;
+            mag = delta.magnitude;
+            if (mag > 0.001f)
+                rawDir = delta / mag;
+
+            fire = Input.GetMouseButtonDown(0);
+
+            isAiming = true;
+
+            // 4) Zero out any stray Z
+            rawDir.z = 0f;
+
+            // 6) Bail if direction is still invalid
+            if (float.IsNaN(rawDir.x) || float.IsNaN(rawDir.y))
+                return;
+
+            // 7) Cache it for animations / VFX
+            v = rawDir;
+            // 9) MANUAL SHOOT: big deadzone + fire
+            const float manualThreshold = 10f;
+            if (fire && CanShoot())
+            {
+                PerformShoot(rawDir);
+            }
+
+
+            // 11) Reload & cooldown
+            if (currentAmmo <= 0 && !isReloading)
+                StartCoroutine(ReloadRoutine());
+
+            shotCooldown -= Time.deltaTime;
+            isPressed = false;
         }
-        
-        if (currentAmmo <= 0 && !isReloading)
-            StartCoroutine(ReloadRoutine());
-        shotCooldown -= Time.deltaTime;
-        isPressed = false;
+    }
+
+    private bool CanShoot()
+    {
+        return currentAmmo > 0
+            && !isReloading
+            && shotCooldown <= 0f;
+    }
+
+    private void PerformAutoAim(Vector3 fallbackDir)
+    {
+        if (!isLocalPlayer) return;
+        currentAmmo--;
+        Vector3 targetDir = GetComponent<Autoaim>().FindTarget();
+
+        // if your autolookup gives Vector3.zero on “no target,”
+        // fall back to the player’s stick/mouse direction
+        if (targetDir == Vector3.zero)
+            targetDir = fallbackDir;
+
+        isAuto = true;
+        CmdPerformShoot(targetDir);
+        shotCooldown = shotCooldownTime;
+    }
+
+    private void PerformShoot(Vector3 shootDir)
+    {
+        if (!isLocalPlayer) return;
+        currentAmmo--;
+        isAuto = false;
+        CmdPerformShoot(shootDir);
+        shotCooldown = shotCooldownTime;
     }
 
 
@@ -270,7 +397,6 @@ public class MouseShooting : NetworkBehaviour
         currentAmmo = maxAmmo;
         isReloading = false;
     }
-    #endregion
 
     #region Pickup Handling
     [Command(requiresAuthority = false)]

@@ -14,9 +14,11 @@ public class Pickup : NetworkBehaviour
     {
         // Only the local player should request a pickup
         if (!other.CompareTag("Player")) return;
+        
         var shooter = other.GetComponent<MouseShooting>();
         if (shooter != null && shooter.isLocalPlayer && shooter.wantsPickup)
         {
+            other.gameObject.GetComponent<MouseShooting>().wantsPickup = false;
             //Tell server "I touched this pickup"
             shooter.CmdRequestPickup(weaponIndex, netId);
         }
@@ -33,6 +35,7 @@ public class Pickup : NetworkBehaviour
         var shooter = other.GetComponent<MouseShooting>();
         if (shooter != null && shooter.isLocalPlayer && shooter.wantsPickup)
         {
+            other.gameObject.GetComponent<MouseShooting>().wantsPickup = false;
             //Tell server "I touched this pickup"
             shooter.CmdRequestPickup(weaponIndex, netId);
         }

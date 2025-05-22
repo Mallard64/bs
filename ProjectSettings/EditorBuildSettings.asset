@@ -9,7 +9,7 @@ EditorBuildSettings:
     path: Assets/irrelevant/New Scene.unity
     guid: dcb09bde362a049ef9091810957659ab
   - enabled: 0
-    path: Assets/Lobby.unity
+    path: Assets/Matchmaker.unity
     guid: 2430ed6cf259d4622a8196002fe17389
   - enabled: 0
     path: Assets/irrelevant/select.unity

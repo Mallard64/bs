@@ -7,20 +7,23 @@ public class ShopMenu : NetworkBehaviour
 {
     public GameObject menu;
 
-    public GameObject[] weaponPickupPrefabs;
+    public GameObject[] weaponPickupPrefabsCommon;
+    public GameObject[] weaponPickupPrefabsUncommon;
+
+    public GameObject other;
 
     [SyncVar] public int coins = 0;
 
     // Start is called before the first frame update
     void Start()
     {
-        
+
     }
 
     // Update is called once per frame
     void Update()
     {
-        
+
     }
 
     public void ActivateMenu()
@@ -28,52 +31,80 @@ public class ShopMenu : NetworkBehaviour
         if (menu.activeSelf)
         {
             menu.SetActive(false);
+            GetComponent<MouseShooting>().enabled = true;
+            other.SetActive(true);
         }
         else
         {
             menu.SetActive(true);
+            GetComponent<MouseShooting>().enabled = false;
+            other.SetActive(false);
         }
-        
     }
 
-    [Server]
-    private void SpawnWithIndicator(Vector3 position, int num)
+    // Called on client, runs on server
+    [Command]
+    void CmdBuyWeaponCommon(int weaponIndex, int cost)
     {
-
-        // 4) Spawn the actual weapon
-        if (weaponPickupPrefabs != null && weaponPickupPrefabs.Length > 0)
+        if (coins >= cost)
         {
-            var prefab = weaponPickupPrefabs[num];
-            var go = Instantiate(prefab, position, Quaternion.identity);
-            NetworkServer.Spawn(go);
+            coins -= cost;
+
+            // Spawn weapon on server
+            if (weaponPickupPrefabsCommon != null && weaponPickupPrefabsCommon.Length > weaponIndex)
+            {
+                var prefab = weaponPickupPrefabsCommon[weaponIndex];
+                var go = Instantiate(prefab, transform.position, Quaternion.identity);
+                NetworkServer.Spawn(go);
+            }
+        }
+    }
+
+    [Command]
+    void CmdBuyWeaponUncommon(int weaponIndex, int cost)
+    {
+        if (coins >= cost)
+        {
+            coins -= cost;
+
+            // Spawn weapon on server
+            if (weaponPickupPrefabsUncommon != null && weaponPickupPrefabsUncommon.Length > weaponIndex)
+            {
+                var prefab = weaponPickupPrefabsUncommon[weaponIndex];
+                var go = Instantiate(prefab, transform.position, Quaternion.identity);
+                NetworkServer.Spawn(go);
+            }
         }
     }
 
     public override void OnStartClient()
     {
         base.OnStartClient();
-        foreach (GameObject g in weaponPickupPrefabs)
+        foreach (GameObject g in weaponPickupPrefabsCommon)
+        {
+            NetworkClient.RegisterPrefab(g);
+        }
+        foreach (GameObject g in weaponPickupPrefabsUncommon)
         {
             NetworkClient.RegisterPrefab(g);
         }
     }
 
+    // These run on client
     public void BuyCommon()
     {
-        if (coins >= 5)
+        if (isLocalPlayer) // Only allow local player to trigger
         {
-            coins -= 5;
+
+            CmdBuyWeaponCommon((new System.Random()).Next(0,weaponPickupPrefabsCommon.Length-1), 5); // 0 is common, 5 coins
         }
-        SpawnWithIndicator(transform.position, 0);
     }
 
     public void BuyRare()
     {
-        if (coins >= 10)
+        if (isLocalPlayer)
         {
-            coins -= 10;
+            CmdBuyWeaponUncommon((new System.Random()).Next(0, weaponPickupPrefabsUncommon.Length - 1), 10); // 0 is common, 5 coins
         }
-        SpawnWithIndicator(transform.position, 0);
     }
-
 }

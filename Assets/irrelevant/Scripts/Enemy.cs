@@ -1,13 +1,9 @@
-
+using TMPro;
 using System.Collections;
 using UnityEngine;
 using Mirror;
 using UnityEngine.SceneManagement;
 
-/// <summary>
-/// Player script combining Smash‐style percent damage, knockback RPCs,
-/// and wall‐death respawn, plus SyncVar spawn‐point replication.
-/// </summary>
 public class Enemy : NetworkBehaviour
 {
     [SyncVar]
@@ -19,31 +15,28 @@ public class Enemy : NetworkBehaviour
     [SyncVar(hook = nameof(OnSpawnPointChanged))]
     public Vector3 assignedSpawnPoint;
 
-    public int connectionId;
+    // --- NEW: our local player number (1 or 2) assigned on the server ---
+    [SyncVar]
+    public int playerNum;
 
     public float maxHealth = 250f;
     public SpriteRenderer spriteRenderer;
     public float respawnTime = 3f;
 
-    private CustomNetworkManager1 networkManager;
     private PlayerMovement mover;
-    private GameStatsManager pt;
     private MouseShooting ms;
-    private bool hx;
-    public float weight = 100f;
+    public TextMeshPro t;
+
+    public int weight = 100;
+
+    public int connectionId;
 
     void Awake()
     {
         spriteRenderer = GetComponent<SpriteRenderer>();
         mover = GetComponent<PlayerMovement>();
-        pt = FindObjectOfType<GameStatsManager>();
         ms = GetComponent<MouseShooting>();
-        hx = PlayerPrefs.GetInt("team") % 2 == 0;
-    }
-
-    void Start()
-    {
-        connectionId = Random.Range(1, int.MaxValue);
+        connectionId = (new System.Random()).Next();
     }
 
     #region Server‐side setup
@@ -51,14 +44,16 @@ public class Enemy : NetworkBehaviour
     {
         base.OnStartServer();
 
-        networkManager = (CustomNetworkManager1)NetworkManager.singleton;
-
-        // Assign a unique connectionId & spawn point on the server
-        connectionToClient.connectionId.ToString();  // ensure connectionToClient exists
+        // 1) Assign spawn point as before
+        var networkManager = (CustomNetworkManager1)NetworkManager.singleton;
         assignedSpawnPoint = networkManager.AssignSpawnPoint(connectionToClient.connectionId);
-
-        // Position immediately on the server
         transform.position = assignedSpawnPoint;
+
+        // 2) **NEW**: simple 2‐player ID (1 or 2)
+        //    Mirror host is usually connectionId=0, first client =1, etc.
+        playerNum = (connectionToClient.connectionId % 2) + 1;
+        
+        Debug.Log($"[Server] Player spawned with playerNum={playerNum} (connId={connectionToClient.connectionId})");
     }
     #endregion
 
@@ -66,40 +61,25 @@ public class Enemy : NetworkBehaviour
     public override void OnStartClient()
     {
         base.OnStartClient();
-        // At the moment the client spawns this object, move it to the replicated point:
         transform.position = assignedSpawnPoint;
     }
 
-    void OnSpawnPointChanged(Vector3 oldPoint, Vector3 newPoint)
-    {
-        // whenever SyncVar changes, update position locally
-        transform.position = newPoint;
-    }
-
-    void OnVisibilityChanged(bool oldVis, bool newVis)
+    void OnSpawnPointChanged(Vector3 _, Vector3 newPoint) => transform.position = newPoint;
+    void OnVisibilityChanged(bool _, bool newVis)
     {
         spriteRenderer.enabled = newVis;
-        if (!NetworkServer.spawned.TryGetValue(GetComponent<MouseShooting>().weaponNetId, out var pi)) return;
-        pi.GetComponent<SpriteRenderer>().enabled = newVis;
+        if (NetworkServer.spawned.TryGetValue(ms.weaponNetId, out var go))
+            go.GetComponent<SpriteRenderer>().enabled = newVis;
     }
     #endregion
 
     void Update()
     {
-        if (assignedSpawnPoint.y > 0)
-        {
-            ms.isFlipped = true;
-        }
-        else
-        {
-            ms.isFlipped = false;
-        }
-    }
+        // update the percent display
+        t.text = $"{health:0}%";
 
-    void UpdateColor()
-    {
-        float t = Mathf.Clamp01(health / maxHealth);
-        spriteRenderer.color = Color.Lerp(Color.green, Color.red, t);
+        // flip logic
+        ms.isFlipped = assignedSpawnPoint.y > 0;
     }
 
     #region Damage & Knockback
@@ -107,15 +87,16 @@ public class Enemy : NetworkBehaviour
     public void TakeDamage(int damage)
     {
         health += damage;
-        // reveal if hidden
         SetVisibility(true);
     }
 
     private IEnumerator HitstunCoroutine(float duration)
     {
         mover.enabled = false;
+        ms.enabled = false;
         yield return new WaitForSeconds(duration);
         mover.enabled = true;
+        ms.enabled = true;
     }
 
     [Server]
@@ -134,19 +115,29 @@ public class Enemy : NetworkBehaviour
     void OnCollisionEnter2D(Collision2D col)
     {
         if (!col.collider.CompareTag("Wall") || !isLocalPlayer) return;
-        Vector2 v = GetComponent<Rigidbody2D>().velocity;
-        if (v.magnitude < 30f) return;
-        if (v.magnitude < 60f)
+
+        var v = GetComponent<Rigidbody2D>().velocity.magnitude;
+        if (v < 20f) return;
+
+        if (v < 35f)
         {
-            GetComponent<Rigidbody2D>().velocity = -v;
+            // a bounce
+            GetComponent<Rigidbody2D>().velocity = -GetComponent<Rigidbody2D>().velocity;
             return;
         }
+
+        // **WE DIED**
         CmdDieAndRespawn();
     }
 
     [Command]
     private void CmdDieAndRespawn()
     {
+        // 1) credit the other player with a kill
+        int other = (playerNum == 1 ? 2 : 1);
+        ScoreManager.Instance.AddKill(other);
+
+        // 2) disable & schedule respawn
         RpcDisablePlayer();
         Invoke(nameof(ServerRespawn), respawnTime);
     }
@@ -155,7 +146,6 @@ public class Enemy : NetworkBehaviour
     private void ServerRespawn()
     {
         health = 0f;
-        // move on the server
         transform.position = assignedSpawnPoint;
         RpcEnablePlayer();
     }
@@ -170,12 +160,9 @@ public class Enemy : NetworkBehaviour
     [ClientRpc]
     private void RpcEnablePlayer()
     {
-        // force the client to the correct spot
         transform.position = assignedSpawnPoint;
-
         spriteRenderer.enabled = true;
         mover.enabled = true;
-        UpdateColor();
     }
     #endregion
 

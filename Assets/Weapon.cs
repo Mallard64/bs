@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using Mirror;
+using UnityEngine.UI;
 
 public class Weapon : NetworkBehaviour
 {
@@ -13,7 +14,8 @@ public class Weapon : NetworkBehaviour
     public GameObject aimingSprite;
     public int slotnum;
 
-    
+    public Image ammoFillImage;       // drag in your AmmoBarFill here
+    public Text ammoFractionText;
 
     public float startup;
 
@@ -30,8 +32,7 @@ public class Weapon : NetworkBehaviour
 
     bool h = false;
 
-    [SyncVar]
-    bool isShooting = false;
+    public bool isShooting = false;
 
     [SyncVar]
     public GameObject parent;
@@ -49,6 +50,16 @@ public class Weapon : NetworkBehaviour
         NetworkClient.RegisterPrefab(bulletPrefab);
     }
 
+    [ClientRpc]
+    void RpcPlayShootAnimation()
+    {
+        Animator targetAnimator = GetComponent<Animator>();
+        if (targetAnimator != null)
+        {
+            targetAnimator.Play("shoot");
+            timer = timerMax;
+        }
+    }
 
     // Update is called once per frame
     void Update()
@@ -56,10 +67,14 @@ public class Weapon : NetworkBehaviour
         if (parent != null)
         {
             transform.position = parent.transform.position;
+            if (ammoFillImage != null)
+                ammoFillImage.fillAmount = (float)currentAmmo / maxAmmo;
+
+            if (ammoFractionText != null)
+                ammoFractionText.text = $"{currentAmmo} / {maxAmmo}";
         }
         if (parent != null && !isShooting)
         {
-
             if (parent.GetComponent<MouseShooting>().weaponNetId == 0) {
                 parent.GetComponent<MouseShooting>().weaponNetId = GetComponent<NetworkIdentity>().netId;
             }
@@ -83,8 +98,12 @@ public class Weapon : NetworkBehaviour
             {
                 Aim(parent.GetComponent<MouseShooting>().d);
             }
+            else
+            {
+                aimingSprite.SetActive(false);
+            }
 
-            if (parent.GetComponent<MouseShooting>().isAiming)
+            if (parent.GetComponent<MouseShooting>().isAiming && GetComponent<NetworkIdentity>().isOwned)
             {
                 
                 Aim(parent.GetComponent<MouseShooting>().v);
@@ -94,6 +113,7 @@ public class Weapon : NetworkBehaviour
             {
                 aimingSprite.SetActive(false);
             }
+
         }
         Animator targetAnimator = GetComponent<Animator>();
         if (targetAnimator != null && timer <= 0.01f)
@@ -109,18 +129,18 @@ public class Weapon : NetworkBehaviour
 
     public void Shoot(Vector3 dir)
     {
-        Animator targetAnimator = GetComponent<Animator>();
-        if (targetAnimator != null)
-        {
-            targetAnimator.Play("shoot");
-            timer = timerMax;
-        }
+        if (isShooting) return;
+        RpcPlayShootAnimation();
         isShooting = true;
-        
+
+        // ─── HERE ───
+        float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+        transform.rotation = Quaternion.Euler(0f, 0f, angle);
+        // ───────────
+
         StartCoroutine(Startup(dir));
-        
-     
     }
+
 
     public IEnumerator Startup(Vector3 dir)
     {
@@ -161,6 +181,7 @@ public class Weapon : NetworkBehaviour
 
     public void Aim(Vector3 dir)
     {
+        if (isShooting) return;
         aimingSprite.SetActive(true);
         float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
         transform.rotation = Quaternion.Euler(0, 0, angle);
