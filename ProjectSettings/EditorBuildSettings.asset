@@ -6,7 +6,7 @@ EditorBuildSettings:
   serializedVersion: 2
   m_Scenes:
   - enabled: 0
-    path: Assets/irrelevant/New Scene.unity
+    path: Assets/New Scene.unity
     guid: dcb09bde362a049ef9091810957659ab
   - enabled: 0
     path: Assets/Matchmaker.unity
@@ -24,12 +24,12 @@ EditorBuildSettings:
     path: Assets/irrelevant/Knockout 1.unity
     guid: ceac700afb21e4fae80bc34fe39e1ba6
   - enabled: 0
-    path: Assets/irrelevant/Lose.unity
+    path: Assets/Lose.unity
     guid: e24b87fe265374810b852892b4043249
   - enabled: 0
-    path: Assets/irrelevant/Win.unity
+    path: Assets/Win.unity
     guid: 75e76af0f8e46475282dbea63afb52a8
   - enabled: 0
-    path: Assets/irrelevant/Tie.unity
+    path: Assets/Tie.unity
     guid: 8416cf911096049cb942af36534bc613
   m_configObjects: {}

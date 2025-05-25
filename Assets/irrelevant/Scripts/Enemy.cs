@@ -31,6 +31,8 @@ public class Enemy : NetworkBehaviour
 
     public int connectionId;
 
+    public GameObject hitfx;
+
     void Awake()
     {
         spriteRenderer = GetComponent<SpriteRenderer>();
@@ -52,7 +54,7 @@ public class Enemy : NetworkBehaviour
         // 2) **NEW**: simple 2‐player ID (1 or 2)
         //    Mirror host is usually connectionId=0, first client =1, etc.
         playerNum = (connectionToClient.connectionId % 2) + 1;
-        
+
         Debug.Log($"[Server] Player spawned with playerNum={playerNum} (connId={connectionToClient.connectionId})");
     }
     #endregion
@@ -78,8 +80,27 @@ public class Enemy : NetworkBehaviour
         // update the percent display
         t.text = $"{health:0}%";
 
+        if (health < 40)
+        {
+            t.color = Color.green;
+        }
+        else if (health < 70)
+        {
+            t.color = Color.yellow;
+        }
+        else
+        {
+            t.color = Color.red;
+        }
+
         // flip logic
         ms.isFlipped = assignedSpawnPoint.y > 0;
+
+
+        if (transform.position.y >= 10 || transform.position.y <= -18 || transform.position.x >= 19 || transform.position.x <= -19)
+        {
+            CmdDieAndRespawn();
+        }
     }
 
     #region Damage & Knockback
@@ -92,11 +113,13 @@ public class Enemy : NetworkBehaviour
 
     private IEnumerator HitstunCoroutine(float duration)
     {
+        //hitfx.SetActive(true);
         mover.enabled = false;
         ms.enabled = false;
         yield return new WaitForSeconds(duration);
         mover.enabled = true;
         ms.enabled = true;
+        //hitfx.SetActive(false);
     }
 
     [Server]
@@ -122,7 +145,7 @@ public class Enemy : NetworkBehaviour
         if (v < 35f)
         {
             // a bounce
-            GetComponent<Rigidbody2D>().velocity = -GetComponent<Rigidbody2D>().velocity;
+            GetComponent<Rigidbody2D>().velocity = -GetComponent<Rigidbody2D>().velocity * 0.6f;
             return;
         }
 

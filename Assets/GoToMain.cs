@@ -8,6 +8,6 @@ public class GoToMain : MonoBehaviour
     // Start is called before the first frame update
     public void pressed()
     {
-        SceneManager.LoadScene("select");
+        SceneManager.LoadScene("New Scene");
     }
 }

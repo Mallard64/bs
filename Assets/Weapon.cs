@@ -75,13 +75,14 @@ public class Weapon : NetworkBehaviour
         }
         if (parent != null && !isShooting)
         {
-            if (parent.GetComponent<MouseShooting>().weaponNetId == 0) {
+            if (parent.GetComponent<MouseShooting>().weaponNetId == 0)
+            {
                 parent.GetComponent<MouseShooting>().weaponNetId = GetComponent<NetworkIdentity>().netId;
             }
 
             h = true;
-            
-            parent.GetComponent<MouseShooting>().shotCooldownTime = end+startup+shot;
+
+            parent.GetComponent<MouseShooting>().shotCooldownTime = end + startup + shot;
 
             if (maxAmmo != parent.GetComponent<MouseShooting>().maxAmmo)
             {
@@ -105,9 +106,9 @@ public class Weapon : NetworkBehaviour
 
             if (parent.GetComponent<MouseShooting>().isAiming && GetComponent<NetworkIdentity>().isOwned)
             {
-                
+
                 Aim(parent.GetComponent<MouseShooting>().v);
-                
+
             }
             else
             {
@@ -124,7 +125,7 @@ public class Weapon : NetworkBehaviour
         {
             timer -= Time.deltaTime;
         }
-        
+
     }
 
     public void Shoot(Vector3 dir)
@@ -251,7 +252,7 @@ public class Weapon : NetworkBehaviour
         // since i goes from -3 to +3, use step = (2 * maxSpread) / (pellets - 1)
 
         // compute angle: i == -3 => -maxSpread; i == +3 => +maxSpread
-        float angle = ((float) (new System.Random()).NextDouble()) * (maxSpread);
+        float angle = ((float)(new System.Random()).NextDouble()) * (maxSpread);
 
         // rotate direction around Z (for a 2D top‐down shooter)
         Vector3 spreadDir = Quaternion.Euler(0, 0, angle) * direction.normalized;

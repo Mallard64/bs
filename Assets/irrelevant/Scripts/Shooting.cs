@@ -116,7 +116,7 @@ public class MouseShooting : NetworkBehaviour
             playerCamera.GetComponent<CameraFollow>().target = transform;
         }
         currentAmmo = maxAmmo;
-        
+
     }
 
     public void ActivatePickupButton()
@@ -296,7 +296,7 @@ public class MouseShooting : NetworkBehaviour
         }
         else
         {
-            
+
             if (weaponNetId == 0)
             {
                 isAiming = false;
@@ -430,7 +430,7 @@ public class MouseShooting : NetworkBehaviour
                 weaponNetId = 0;
                 weaponIdB = 0;
             }
-            else 
+            else
             {
                 if (!NetworkServer.spawned.TryGetValue(weaponNetId, out var cc)) return;
                 NetworkServer.Destroy(cc.gameObject);
@@ -438,7 +438,7 @@ public class MouseShooting : NetworkBehaviour
                 weaponIdC = 0;
             }
         }
-        
+
         weaponNetId = ni.netId;
         if (weaponIdA == 0)
         {
@@ -461,7 +461,7 @@ public class MouseShooting : NetworkBehaviour
             ChangeWeaponSlot(1);
             ChangeWeaponSlot(2);
         }
-        
+
         currentAmmo = instance.GetComponent<Weapon>().maxAmmo;
         maxAmmo = instance.GetComponent<Weapon>().maxAmmo;
     }
@@ -478,4 +478,3 @@ public class MouseShooting : NetworkBehaviour
     void OnWeaponIdCChanged(uint oldId, uint newId) { Debug.Log($"WeaponIdC: {oldId} -> {newId}"); }
     #endregion
 }
-

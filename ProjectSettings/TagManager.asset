@@ -12,6 +12,7 @@ TagManager:
   - Bullet
   - Wall
   - Pickup
+  - WeaponSpawnPoint
   layers:
   - Default
   - TransparentFX

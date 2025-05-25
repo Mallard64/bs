@@ -52,7 +52,7 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  bulletDamage: 2
+  bulletDamage: 5
   knockbackBase: 30
   knockbackScaling: 40
   shooterId: 0

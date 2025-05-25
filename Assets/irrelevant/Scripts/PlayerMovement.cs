@@ -1,5 +1,6 @@
 using UnityEngine;
 using Mirror;
+using TMPro;
 
 public class PlayerMovement : NetworkBehaviour
 {
@@ -13,6 +14,7 @@ public class PlayerMovement : NetworkBehaviour
     public Transform cameraTransform;  // Camera transform (if needed)
     public string name;                // Player name (for animations)
     public MouseShooting ms;
+    public TextMeshProUGUI t;
     public bool isKeyboard;
 
     void Start()
@@ -29,8 +31,9 @@ public class PlayerMovement : NetworkBehaviour
     void Update()
     {
 
-        if (!isLocalPlayer) return;
+        if (!isLocalPlayer || !isClient) return;
         // Keep camera rotation fixed
+
         if (cameraTransform != null)
         {
             
@@ -85,7 +88,7 @@ public class PlayerMovement : NetworkBehaviour
 
     void FixedUpdate()
     {
-        if (!isLocalPlayer) return; // Only the local player can move
+        if (!isLocalPlayer || !isClient) return; // Only the local player can move
 
         // Move the player using Rigidbody2D physics
         rb.velocity = movement * moveSpeed;

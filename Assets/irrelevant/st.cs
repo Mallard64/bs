@@ -18,6 +18,6 @@ public class st : MonoBehaviour
     }
 
     public void Switch() {
-        SceneManager.LoadScene("select");
+        SceneManager.LoadScene("Knockout");
     }
 }
