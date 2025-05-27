@@ -110,27 +110,21 @@ MonoBehaviour:
   syncInterval: 0
   currentAmmo: 0
   firePoint: {fileID: 2005663240917727166}
-  bulletPrefab: {fileID: 3393839604986813093, guid: a959be459bb864fe59091fade33bf0ee, type: 3}
-  bulletSpeed: 1
-  bulletLifetime: 5
   aimingSprite: {fileID: 7987449177193708265}
   slotnum: 0
+  ammoFillImage: {fileID: 0}
   ammoFractionText: {fileID: 0}
   startup: 0.1
-  id: 2
   shot: 0.5
   end: 0.3
   timerMax: 0.5
+  bulletSpeed: 1
+  bulletLifetime: 5
+  id: 2
   maxAmmo: 10
-  isShooting: 0
-  parent: {fileID: 0}
   audioSource: {fileID: 8629796344333504214}
-  shootSounds:
-  - {fileID: 8300000, guid: 0c2f2ed40c41c461d8ccc149db633571, type: 3}
-  - {fileID: 8300000, guid: 0c2f2ed40c41c461d8ccc149db633571, type: 3}
-  - {fileID: 8300000, guid: 0c2f2ed40c41c461d8ccc149db633571, type: 3}
-  - {fileID: 0}
-  audioVolume: 0.7
+  shootSound: {fileID: 0}
+  parent: {fileID: 0}
 --- !u!114 &8162245769233833843
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -301,7 +295,7 @@ AudioSource:
   m_Enabled: 1
   serializedVersion: 4
   OutputAudioMixerGroup: {fileID: 0}
-  m_audioClip: {fileID: 0}
+  m_audioClip: {fileID: 8300000, guid: 0c2f2ed40c41c461d8ccc149db633571, type: 3}
   m_PlayOnAwake: 1
   m_Volume: 1
   m_Pitch: 1

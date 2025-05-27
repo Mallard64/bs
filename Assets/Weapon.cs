@@ -8,50 +8,53 @@ public class Weapon : NetworkBehaviour
 {
     public int currentAmmo;
     public Transform firePoint;
-    public GameObject bulletPrefab;
-    public float bulletSpeed = 5f;
-    public float bulletLifetime = 5f;
     public GameObject aimingSprite;
     public int slotnum;
 
-    public Image ammoFillImage;       // drag in your AmmoBarFill here
+    public Image ammoFillImage;
     public Text ammoFractionText;
 
     public float startup;
+    public float shot;
+    public float end;
+    public float timerMax;
+
+    public float bulletSpeed;
+
+    public float bulletLifetime;
 
     public int id;
 
-    float timer;
-
-    public float shot;
-    public float end;
-
-    public float timerMax;
-
     [SyncVar] public int maxAmmo;
 
-    bool h = false;
+    // Sound components
+    public AudioSource audioSource;
+    public AudioClip shootSound;
 
-    public bool isShooting = false;
+    float timer;
+    bool h = false;
 
     [SyncVar]
     public GameObject parent;
 
-    // Start is called before the first frame update
     void Start()
     {
         timer = 0f;
+
+        // Get or add AudioSource component
+        if (audioSource == null)
+        {
+            audioSource = GetComponent<AudioSource>();
+            if (audioSource == null)
+            {
+                audioSource = gameObject.AddComponent<AudioSource>();
+            }
+        }
     }
 
-
-    public override void OnStartClient()
-    {
-        base.OnStartClient();
-        NetworkClient.RegisterPrefab(bulletPrefab);
-    }
-
+    // Called by MouseShooting to play shoot animation
     [ClientRpc]
-    void RpcPlayShootAnimation()
+    public void RpcPlayShootAnimation()
     {
         Animator targetAnimator = GetComponent<Animator>();
         if (targetAnimator != null)
@@ -59,22 +62,46 @@ public class Weapon : NetworkBehaviour
             targetAnimator.Play("shoot");
             timer = timerMax;
         }
+
+        // Play shoot sound
+        PlayShootSound();
     }
 
-    // Update is called once per frame
+    // Called by MouseShooting to play shoot animation (server-side)
+    public void PlayShootAnimation()
+    {
+        RpcPlayShootAnimation();
+    }
+
+    // Play shoot sound locally
+    private void PlayShootSound()
+    {
+        if (audioSource != null)
+        {
+            audioSource.Play();
+        }
+    }
+
+    // Called by MouseShooting to rotate weapon to shoot direction
+    public void RotateToDirection(Vector3 direction)
+    {
+        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+        transform.rotation = Quaternion.Euler(0f, 0f, angle);
+        GetComponent<SpriteRenderer>().flipY = ((angle + 360) % 360) > 180;
+    }
+
     void Update()
     {
         if (parent != null)
         {
+            parent.GetComponent<MouseShooting>().bulletSpeed = bulletSpeed;
+            parent.GetComponent<MouseShooting>().bulletLifetime = bulletLifetime;
             transform.position = parent.transform.position;
-            if (ammoFillImage != null)
-                ammoFillImage.fillAmount = (float)currentAmmo / maxAmmo;
-
-            if (ammoFractionText != null)
-                ammoFractionText.text = $"{currentAmmo} / {maxAmmo}";
         }
-        if (parent != null && !isShooting)
+
+        if (parent != null)
         {
+            // Sync weapon net ID with parent's MouseShooting
             if (parent.GetComponent<MouseShooting>().weaponNetId == 0)
             {
                 parent.GetComponent<MouseShooting>().weaponNetId = GetComponent<NetworkIdentity>().netId;
@@ -82,40 +109,43 @@ public class Weapon : NetworkBehaviour
 
             h = true;
 
+            // Update parent's shot cooldown time
             parent.GetComponent<MouseShooting>().shotCooldownTime = end + startup + shot;
 
+            // Sync ammo values
             if (maxAmmo != parent.GetComponent<MouseShooting>().maxAmmo)
             {
                 parent.GetComponent<MouseShooting>().maxAmmo = maxAmmo;
                 parent.GetComponent<MouseShooting>().currentAmmo = maxAmmo;
             }
 
-            float angle = Mathf.Atan2(parent.GetComponent<Rigidbody2D>().velocity.y, parent.GetComponent<Rigidbody2D>().velocity.x) * Mathf.Rad2Deg;
-            transform.rotation = Quaternion.Euler(0, 0, angle);
-            GetComponent<SpriteRenderer>().flipY = ((angle + 360) % 360) > 180;
-            transform.rotation = Quaternion.Euler(0, 0, angle);
-
-            if (parent.GetComponent<MouseShooting>().isAuto)
+            // Handle movement-based rotation when not shooting
+            var mouseShooting = parent.GetComponent<MouseShooting>();
+            if (!mouseShooting.isShooting && !mouseShooting.isAiming)
             {
-                Aim(parent.GetComponent<MouseShooting>().d);
+                float angle = Mathf.Atan2(parent.GetComponent<Rigidbody2D>().velocity.y, parent.GetComponent<Rigidbody2D>().velocity.x) * Mathf.Rad2Deg;
+                transform.rotation = Quaternion.Euler(0, 0, angle);
+                GetComponent<SpriteRenderer>().flipY = ((angle + 360) % 360) > 180;
+                transform.rotation = Quaternion.Euler(0, 0, angle);
             }
-            else
+            else if (mouseShooting.isAiming && !mouseShooting.isShooting)
             {
-                aimingSprite.SetActive(false);
-            }
-
-            if (parent.GetComponent<MouseShooting>().isAiming && GetComponent<NetworkIdentity>().isOwned)
-            {
-
-                Aim(parent.GetComponent<MouseShooting>().v);
-
-            }
-            else
-            {
-                aimingSprite.SetActive(false);
+                float angle = Mathf.Atan2(mouseShooting.v.y, mouseShooting.v.x) * Mathf.Rad2Deg;
+                transform.rotation = Quaternion.Euler(0, 0, angle);
+                GetComponent<SpriteRenderer>().flipY = ((angle + 360) % 360) > 180;
+                transform.rotation = Quaternion.Euler(0, 0, angle);
             }
 
+
+
+            // Handle auto-aiming display
+            if (mouseShooting.isAuto)
+            {
+                Aim(mouseShooting.d);
+            }
         }
+
+        // Handle animation timer
         Animator targetAnimator = GetComponent<Animator>();
         if (targetAnimator != null && timer <= 0.01f)
         {
@@ -125,64 +155,14 @@ public class Weapon : NetworkBehaviour
         {
             timer -= Time.deltaTime;
         }
-
     }
 
-    public void Shoot(Vector3 dir)
-    {
-        if (isShooting) return;
-        RpcPlayShootAnimation();
-        isShooting = true;
-
-        // ─── HERE ───
-        float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
-        transform.rotation = Quaternion.Euler(0f, 0f, angle);
-        // ───────────
-
-        StartCoroutine(Startup(dir));
-    }
-
-
-    public IEnumerator Startup(Vector3 dir)
-    {
-        yield return new WaitForSeconds(startup);
-        currentAmmo--;
-        //if (!isLocalPlayer) return;
-        if (id == 0)
-        {
-            CmdShootSniper(dir);
-        }
-        else if (id == 1)
-        {
-            CmdShootShotgun(dir);
-        }
-        else if (id == 2)
-        {
-            CmdShootKnife(dir);
-        }
-        else
-        {
-            CmdShootAR(dir);
-        }
-        StartCoroutine(ShotTime());
-    }
-
-    public IEnumerator ShotTime()
-    {
-        yield return new WaitForSeconds(shot);
-        StartCoroutine(EndTime());
-    }
-
-    public IEnumerator EndTime()
-    {
-        yield return new WaitForSeconds(end);
-        isShooting = false;
-        parent.GetComponent<MouseShooting>().isAuto = false;
-    }
-
+    // Called by MouseShooting to aim the weapon
     public void Aim(Vector3 dir)
     {
-        if (isShooting) return;
+        var mouseShooting = parent.GetComponent<MouseShooting>();
+        if (mouseShooting != null && mouseShooting.isShooting) return;
+
         aimingSprite.SetActive(true);
         float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
         transform.rotation = Quaternion.Euler(0, 0, angle);
@@ -190,83 +170,9 @@ public class Weapon : NetworkBehaviour
         aimingSprite.transform.rotation = Quaternion.Euler(0, 0, angle);
     }
 
-    [Command(requiresAuthority = false)]
-    public virtual void CmdShootSniper(Vector3 direction)
+    // Called by MouseShooting to stop aiming
+    public void StopAiming()
     {
-        Vector3 spawnPosition = transform.position + direction.normalized * 0.6f;
-        GameObject bullet = Instantiate(bulletPrefab, spawnPosition, Quaternion.identity);
-        bullet.transform.rotation = transform.rotation;
-        bullet.GetComponent<Rigidbody2D>().velocity = direction.normalized * bulletSpeed;
-        bullet.GetComponent<Bullet>().shooterId = parent.GetComponent<Enemy>().connectionId;
-
-        NetworkServer.Spawn(bullet);
-        Destroy(bullet, bulletLifetime);
+        aimingSprite.SetActive(false);
     }
-
-    [Command(requiresAuthority = false)]
-    public virtual void CmdShootShotgun(Vector3 direction)
-    {
-        int pellets = 7;            // you have 7 pellets: i = -3, -2, …, +3
-        float maxSpread = 45f;      // total spread (°) from center to top/bottom
-        float step = maxSpread / (pellets - 1) * 2;
-        // since i goes from -3 to +3, use step = (2 * maxSpread) / (pellets - 1)
-
-        for (int i = -3; i <= 3; i++)
-        {
-            // compute angle: i == -3 => -maxSpread; i == +3 => +maxSpread
-            float angle = i * (maxSpread / 3f);
-
-            // rotate direction around Z (for a 2D top‐down shooter)
-            Vector3 spreadDir = Quaternion.Euler(0, 0, angle) * direction.normalized;
-
-            Vector3 spawnPos = transform.position + spreadDir * 0.6f;
-            GameObject bullet = Instantiate(bulletPrefab, spawnPos, Quaternion.identity);
-
-            var rb = bullet.GetComponent<Rigidbody2D>();
-            rb.velocity = spreadDir * bulletSpeed;
-
-            bullet.GetComponent<Bullet>().shooterId = parent.GetComponent<Enemy>().connectionId;
-
-            NetworkServer.Spawn(bullet);
-            Destroy(bullet, bulletLifetime);
-        }
-    }
-
-    [Command(requiresAuthority = false)]
-    public void CmdShootKnife(Vector3 direction)
-    {
-        Vector3 pos = transform.position + direction.normalized * 0.3f;
-        var hitbox = Instantiate(bulletPrefab, pos, Quaternion.identity);
-        //hitbox.transform.SetParent(firePoint, true);
-        hitbox.GetComponent<Bullet>().shooterId = parent.GetComponent<Enemy>().connectionId;
-        hitbox.GetComponent<Bullet>().parent = gameObject;
-        NetworkServer.Spawn(hitbox);
-        Destroy(hitbox, 0.1f);
-    }
-
-    [Command(requiresAuthority = false)]
-    public virtual void CmdShootAR(Vector3 direction)
-    {
-        int pellets = 7;            // you have 7 pellets: i = -3, -2, …, +3
-        float maxSpread = 1.5f;      // total spread (°) from center to top/bottom
-        // since i goes from -3 to +3, use step = (2 * maxSpread) / (pellets - 1)
-
-        // compute angle: i == -3 => -maxSpread; i == +3 => +maxSpread
-        float angle = ((float)(new System.Random()).NextDouble()) * (maxSpread);
-
-        // rotate direction around Z (for a 2D top‐down shooter)
-        Vector3 spreadDir = Quaternion.Euler(0, 0, angle) * direction.normalized;
-
-        Vector3 spawnPos = transform.position + spreadDir * 0.6f;
-        GameObject bullet = Instantiate(bulletPrefab, spawnPos, Quaternion.identity);
-
-        var rb = bullet.GetComponent<Rigidbody2D>();
-        rb.velocity = spreadDir * bulletSpeed;
-
-        bullet.GetComponent<Bullet>().shooterId = parent.GetComponent<Enemy>().connectionId;
-
-        NetworkServer.Spawn(bullet);
-        Destroy(bullet, bulletLifetime);
-    }
-
 }

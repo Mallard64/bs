@@ -2224,9 +2224,13 @@ MonoBehaviour:
   - {fileID: 9049111763201746391, guid: 39d714aacbf684e02b6eae12bd718aaf, type: 3}
   - {fileID: 5020698552620319987, guid: eb32c4f21fd814027b9528546644aa2f, type: 3}
   - {fileID: 9049111763201746391, guid: 3a4a76db02390426b8aea7a1f6de2529, type: 3}
+  bulletPrefabs:
+  - {fileID: 3393839604986813093, guid: 99cbbf48850644943b2a64eed4ca5519, type: 3}
+  - {fileID: 3393839604986813093, guid: a6efb3b32f64b46f6a161ea53c2b3f66, type: 3}
+  - {fileID: 3393839604986813093, guid: 3c1170eea83064e9694f6ca26f94c3da, type: 3}
+  - {fileID: 3393839604986813093, guid: cad215f2b85b9483c91df42a5dc47a08, type: 3}
   weaponIdA: 0
   weaponIdB: 0
-  ammoFillImage: {fileID: 2546211359795065387}
   weaponIdC: 0
   isFlipped: 1
   wantsPickup: 0
@@ -2240,6 +2244,8 @@ MonoBehaviour:
   maxAmmo: 3
   reloadTime: 2
   shotCooldownTime: 1
+  bulletSpeed: 5
+  bulletLifetime: 5
   weapId: 0
   weaponNetId: 0
   currentAmmo: 0
@@ -2251,6 +2257,9 @@ MonoBehaviour:
   swap: {fileID: 9055336074988313172}
   movement: {fileID: 7755104010485209607}
   shoot: {fileID: 5471892574555899507}
+  PanelBar: {fileID: 2546211359795065387}
+  Bar: {fileID: 7045636413472358504}
+  isShooting: 0
 --- !u!212 &7741182206367089162
 SpriteRenderer:
   m_ObjectHideFlags: 0

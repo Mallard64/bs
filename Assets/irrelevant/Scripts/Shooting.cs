@@ -16,6 +16,9 @@ public class MouseShooting : NetworkBehaviour
     [Header("Weapon Prefabs (0 = none)")]
     public GameObject[] weapons;
 
+    [Header("Bullet Prefabs for each weapon")]
+    public GameObject[] bulletPrefabs; // Array of bullet prefabs corresponding to weapon IDs
+
     [SyncVar]
     public uint weaponIdA = 0;
 
@@ -31,7 +34,6 @@ public class MouseShooting : NetworkBehaviour
 
     public GameObject PickupButton;
 
-
     [Header("References")]
     public Transform firePoint;
     public Camera playerCamera;
@@ -43,12 +45,15 @@ public class MouseShooting : NetworkBehaviour
     public Vector3 d = Vector3.zero;
 
     [Header("Stats")]
-
     [SyncVar]
     public int maxAmmo = 3;
 
     public float reloadTime = 2f;
     public float shotCooldownTime = 1f;
+
+    [Header("Weapon Stats")]
+    public float bulletSpeed = 5f;
+    public float bulletLifetime = 5f;
 
     // Current weapon slot index (0=A,1=B,2=C)
     [SyncVar]
@@ -69,26 +74,31 @@ public class MouseShooting : NetworkBehaviour
     public float shotCooldown;
 
     public bool isAiming = false;
-
     public bool isPressed = false;
-
     public bool canShoot = true;
-
     public Vector3 v = Vector3.zero;
 
     public GameObject swap;
     public GameObject movement;
     public GameObject shoot;
 
+    public Image PanelBar;
+    public Image Bar;
+
+    public bool isShooting = false;
+
     private void Start()
     {
+        if (!isLocalPlayer)
+        {
+            Bar.gameObject.SetActive(false);
+        }
         isKeyboard = !Application.isMobilePlatform;
         deactivateMobile(isKeyboard);
     }
 
     private void deactivateMobile(bool i)
     {
-        //swap.SetActive(i);
         movement.SetActive(i);
         shoot.SetActive(i);
     }
@@ -101,6 +111,12 @@ public class MouseShooting : NetworkBehaviour
         foreach (var prefab in weapons)
             if (prefab != null)
                 NetworkClient.RegisterPrefab(prefab);
+
+        // Register all bullet prefabs
+        foreach (var bulletPrefab in bulletPrefabs)
+            if (bulletPrefab != null)
+                NetworkClient.RegisterPrefab(bulletPrefab);
+
         // Attach any existing weapon
         if (weaponNetId != 0)
             AttachWeaponClient(0, weaponNetId);
@@ -116,7 +132,6 @@ public class MouseShooting : NetworkBehaviour
             playerCamera.GetComponent<CameraFollow>().target = transform;
         }
         currentAmmo = maxAmmo;
-
     }
 
     public void ActivatePickupButton()
@@ -145,6 +160,7 @@ public class MouseShooting : NetworkBehaviour
             transform.localEulerAngles = new Vector3(0, 0, 180);
         }
         if (!isLocalPlayer) return;
+        PanelBar.fillAmount = ((float)currentAmmo) / maxAmmo;
         if (isFlipped)
         {
             transform.localEulerAngles = new Vector3(0, 0, 180);
@@ -155,8 +171,6 @@ public class MouseShooting : NetworkBehaviour
         }
         HandleShootingInput();
         UpdateUI();
-
-
     }
     #endregion
 
@@ -253,6 +267,23 @@ public class MouseShooting : NetworkBehaviour
                 dir = -dir;
             }
             v = dir;
+
+            // Tell weapon to aim
+            if (weaponNetId != 0 && NetworkClient.spawned.TryGetValue(weaponNetId, out var weaponNi))
+            {
+                var weapon = weaponNi.GetComponent<Weapon>();
+                if (mag >= 0.11f)
+                {
+                    weapon.Aim(dir);
+                    isAiming = true;
+                }
+                else
+                {
+                    weapon.StopAiming();
+                    isAiming = false;
+                }
+            }
+
             if (mag <= 0.1f && isPressed && currentAmmo > 0 && !isReloading && shotCooldown <= 0f)
             {
                 Debug.Log("autoaim");
@@ -278,16 +309,6 @@ public class MouseShooting : NetworkBehaviour
                 CmdPerformShoot(dir);
                 shotCooldown = shotCooldownTime;
             }
-            if (mag >= 0.11f || isKeyboard)
-            {
-                isAiming = true;
-
-            }
-            else
-            {
-                isAiming = false;
-
-            }
 
             if (currentAmmo <= 0 && !isReloading)
                 StartCoroutine(ReloadRoutine());
@@ -296,18 +317,16 @@ public class MouseShooting : NetworkBehaviour
         }
         else
         {
-
             if (weaponNetId == 0)
             {
                 isAiming = false;
                 return;
             }
-            // 3) Gather “fire” + raw direction + magnitude
+
             Vector3 rawDir = Vector3.zero;
             float mag = 0f;
             bool fire = false;
 
-            // ——— DESKTOP: convert screen→world at the player’s Z-depth ———
             Vector3 playerScreen = Camera.main.WorldToScreenPoint(transform.position);
             Vector3 mouseScreen = Input.mousePosition;
             mouseScreen.z = playerScreen.z;
@@ -319,27 +338,27 @@ public class MouseShooting : NetworkBehaviour
                 rawDir = delta / mag;
 
             fire = Input.GetMouseButtonDown(0);
-
             isAiming = true;
-
-            // 4) Zero out any stray Z
             rawDir.z = 0f;
 
-            // 6) Bail if direction is still invalid
             if (float.IsNaN(rawDir.x) || float.IsNaN(rawDir.y))
                 return;
 
-            // 7) Cache it for animations / VFX
             v = rawDir;
-            // 9) MANUAL SHOOT: big deadzone + fire
+
+            // Tell weapon to aim
+            if (weaponNetId != 0 && NetworkClient.spawned.TryGetValue(weaponNetId, out var weaponNi))
+            {
+                var weapon = weaponNi.GetComponent<Weapon>();
+                weapon.Aim(rawDir);
+            }
+
             const float manualThreshold = 10f;
             if (fire && CanShoot())
             {
                 PerformShoot(rawDir);
             }
 
-
-            // 11) Reload & cooldown
             if (currentAmmo <= 0 && !isReloading)
                 StartCoroutine(ReloadRoutine());
 
@@ -361,8 +380,6 @@ public class MouseShooting : NetworkBehaviour
         currentAmmo--;
         Vector3 targetDir = GetComponent<Autoaim>().FindTarget();
 
-        // if your autolookup gives Vector3.zero on “no target,”
-        // fall back to the player’s stick/mouse direction
         if (targetDir == Vector3.zero)
             targetDir = fallbackDir;
 
@@ -380,14 +397,124 @@ public class MouseShooting : NetworkBehaviour
         shotCooldown = shotCooldownTime;
     }
 
-
     [Command]
     void CmdPerformShoot(Vector3 direction)
     {
         if (weaponNetId == 0) return;
-        var wep = NetworkServer.spawned[weaponNetId].GetComponent<Weapon>();
-        wep?.Shoot(direction);
+        if (!NetworkServer.spawned.TryGetValue(weaponNetId, out var weaponNi)) return;
 
+        var weapon = weaponNi.GetComponent<Weapon>();
+        if (weapon == null) return;
+
+        // Start shooting sequence
+        StartCoroutine(ShootingSequence(weapon.id, direction, weapon.startup, weapon.shot, weapon.end));
+
+        // Tell weapon to play animation and rotate
+        weapon.PlayShootAnimation();
+        weapon.RotateToDirection(direction);
+    }
+
+    private IEnumerator ShootingSequence(int weaponId, Vector3 direction, float startup, float shot, float end)
+    {
+        isShooting = true;
+
+        // Startup delay
+        yield return new WaitForSeconds(startup);
+
+        // Perform the actual shot based on weapon type
+        switch (weaponId)
+        {
+            case 0:
+                ShootSniper(direction);
+                break;
+            case 1:
+                ShootShotgun(direction);
+                break;
+            case 2:
+                ShootKnife(direction);
+                break;
+            default:
+                ShootAR(direction);
+                break;
+        }
+
+        // Shot duration
+        yield return new WaitForSeconds(shot);
+
+        // End delay
+        yield return new WaitForSeconds(end);
+
+        isShooting = false;
+        isAuto = false;
+    }
+
+    private void ShootSniper(Vector3 direction)
+    {
+        Vector3 spawnPosition = firePoint.position + direction.normalized * 0.6f;
+        GameObject bullet = Instantiate(bulletPrefabs[0], spawnPosition, Quaternion.identity);
+
+        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+        bullet.transform.rotation = Quaternion.Euler(0, 0, angle);
+
+        bullet.GetComponent<Rigidbody2D>().velocity = direction.normalized * bulletSpeed;
+        bullet.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+
+        NetworkServer.Spawn(bullet);
+        Destroy(bullet, bulletLifetime);
+    }
+
+    private void ShootShotgun(Vector3 direction)
+    {
+        int pellets = 7;
+        float maxSpread = 45f;
+
+        for (int i = -3; i <= 3; i++)
+        {
+            float angle = i * (maxSpread / 3f);
+            Vector3 spreadDir = Quaternion.Euler(0, 0, angle) * direction.normalized;
+
+            Vector3 spawnPos = firePoint.position + spreadDir * 0.6f;
+            GameObject bullet = Instantiate(bulletPrefabs[1], spawnPos, Quaternion.identity);
+
+            var rb = bullet.GetComponent<Rigidbody2D>();
+            rb.velocity = spreadDir * bulletSpeed;
+
+            bullet.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+
+            NetworkServer.Spawn(bullet);
+            Destroy(bullet, bulletLifetime);
+        }
+    }
+
+    private void ShootKnife(Vector3 direction)
+    {
+        Vector3 pos = firePoint.position + direction.normalized * 0.3f;
+        var hitbox = Instantiate(bulletPrefabs[2], pos, Quaternion.identity);
+
+        hitbox.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+        hitbox.GetComponent<Bullet>().parent = gameObject;
+
+        NetworkServer.Spawn(hitbox);
+        Destroy(hitbox, 0.1f);
+    }
+
+    private void ShootAR(Vector3 direction)
+    {
+        float maxSpread = 1.5f;
+        float angle = ((float)(new System.Random()).NextDouble()) * (maxSpread);
+
+        Vector3 spreadDir = Quaternion.Euler(0, 0, angle) * direction.normalized;
+
+        Vector3 spawnPos = firePoint.position + spreadDir * 0.6f;
+        GameObject bullet = Instantiate(bulletPrefabs[3], spawnPos, Quaternion.identity);
+
+        var rb = bullet.GetComponent<Rigidbody2D>();
+        rb.velocity = spreadDir * bulletSpeed;
+
+        bullet.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+
+        NetworkServer.Spawn(bullet);
+        Destroy(bullet, bulletLifetime);
     }
 
     private IEnumerator ReloadRoutine()
@@ -469,7 +596,7 @@ public class MouseShooting : NetworkBehaviour
 
     #region UI Updates
     void OnAmmoChanged(int oldVal, int newVal) { if (isLocalPlayer) UpdateUI(); }
-    void UpdateUI() { ammoText.text = $"{currentAmmo} / {maxAmmo}"; }
+    void UpdateUI() {PanelBar.fillAmount = currentAmmo / maxAmmo; }
     #endregion
 
     #region SyncVar Hooks
