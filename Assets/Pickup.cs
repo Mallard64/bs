@@ -9,12 +9,15 @@ public class Pickup : NetworkBehaviour
 {
     [Tooltip("Index into MouseShooting.weapons array.")]
     public int weaponIndex;
+    public int name;
+    public GameObject indicator;
 
     private void OnTriggerEnter2D(Collider2D other)
     {
         // Only the local player should request a pickup
         if (!other.CompareTag("Player")) return;
-        
+        indicator.SetActive(true);
+
         var shooter = other.GetComponent<MouseShooting>();
         if (shooter != null && shooter.isLocalPlayer && shooter.wantsPickup)
         {
@@ -48,6 +51,7 @@ public class Pickup : NetworkBehaviour
     private void OnTriggerExit2D(Collider2D other)
     {
         if (!other.CompareTag("Player")) return;
+        indicator.SetActive(false);
         var shooter = other.GetComponent<MouseShooting>();
         if (shooter != null && shooter.isLocalPlayer)
         {

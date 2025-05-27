@@ -596,7 +596,7 @@ public class MouseShooting : NetworkBehaviour
 
     #region UI Updates
     void OnAmmoChanged(int oldVal, int newVal) { if (isLocalPlayer) UpdateUI(); }
-    void UpdateUI() {PanelBar.fillAmount = currentAmmo / maxAmmo; }
+    void UpdateUI() {}
     #endregion
 
     #region SyncVar Hooks
