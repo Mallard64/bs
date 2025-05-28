@@ -1,4 +1,7 @@
 using UnityEngine;
+using System;
+using System.Collections;
+using System.Collections.Generic;
 
 public class BotPlayer : MonoBehaviour
 {
@@ -9,15 +12,110 @@ public class BotPlayer : MonoBehaviour
     public float shootingRange = 5f;    // Range within which the bot will shoot
     public float fireRate = 2f;         // Time between shots
     private float nextFireTime;         // Tracks when the bot can shoot again
+    public float dist = 5f;
+    public System.Random r;
+
+
+    private void Start()
+    {
+        r = new System.Random();
+        player = FindAnyObjectByType<PlayerMovement>().transform;
+    }
 
     private void Update()
     {
-        MoveTowardsPlayer();  // Bot movement logic
-        ShootAtPlayer();      // Bot shooting logic
+        //if (GetComponent<Enemy>().health >= 50)
+        //{
+
+        //}
+        //else
+        //{
+        //    RunLogicAggro();
+        //}
+        RunLogicAggro();
     }
 
+    void RunLogicAggro()
+    {
+        MoveTowardsPlayer(dist);
+        StartCoroutine(DecideAttack());
+    }
+
+    IEnumerator DecideAttack()
+    {
+        if (r.NextDouble() > 0.9)
+        {
+            StartCoroutine(AttackA());
+        }
+        else
+        {
+            StartCoroutine(AttackB());
+        }
+        yield return new WaitForSeconds(5f);
+    }
+
+    void ShowIndicator()
+    {
+        Debug.Log("Gonna attack!");
+        GetComponent<SpriteRenderer>().color = Color.red;
+    }
+
+    void HideIndicator()
+    {
+        Debug.Log("You're cooked!");
+        GetComponent<SpriteRenderer>().color = Color.white;
+    }
+
+    IEnumerator AttackA()
+    {
+        ShowIndicator();
+        yield return new WaitForSeconds(2f);
+        HideIndicator();
+        transform.position = player.transform.position;
+        float distanceToPlayer = Vector3.Distance(transform.position, player.position);
+
+        // Check if the bot is within range and the cooldown allows for shooting
+        if (distanceToPlayer <= shootingRange && Time.time >= nextFireTime)
+        {
+            // Aim at the player
+            Vector3 direction = (player.position - firePoint.position).normalized;
+            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+            firePoint.rotation = Quaternion.Euler(new Vector3(0, 0, angle));
+
+            // Fire a bullet
+            FireBullet();
+
+            // Set the next fire time
+            nextFireTime = Time.time + fireRate;
+        }
+        yield return new WaitForSeconds(0.5f);
+    }
+
+    IEnumerator AttackB()
+    {
+        for (int i = -2; i <= 2; i++)
+        {
+            float distanceToPlayer = Vector3.Distance(transform.position, player.position);
+            if (distanceToPlayer <= shootingRange && Time.time >= nextFireTime)
+            {
+                // Aim at the player
+                Vector3 direction = (player.position - firePoint.position).normalized;
+                float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg + i * 10;
+                firePoint.rotation = Quaternion.Euler(new Vector3(0, 0, angle));
+
+                // Fire a bullet
+                FireBullet();
+
+                // Set the next fire time
+                nextFireTime = Time.time + fireRate;
+            }
+        }
+        yield return new WaitForSeconds(0.5f);
+    }
+    
+
     // Bot moves toward the player
-    void MoveTowardsPlayer()
+    void MoveTowardsPlayer(float dist)
     {
         // Calculate the direction to move towards the player
         Vector3 direction = (player.position - transform.position).normalized;
@@ -27,7 +125,7 @@ public class BotPlayer : MonoBehaviour
         Debug.Log("Player Y Position: " + player.position.y);
 
         // Move the bot towards the player if it's out of shooting range
-        if (distance > 10f)
+        if (distance > dist)
         {
             transform.position += direction * moveSpeed * Time.deltaTime;
         }
