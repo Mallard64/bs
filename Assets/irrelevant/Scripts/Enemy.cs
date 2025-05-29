@@ -6,6 +6,8 @@ using UnityEngine.SceneManagement;
 
 public class Enemy : NetworkBehaviour
 {
+    public bool isEnemy = false;
+
     [SyncVar]
     public float health;           // Percent damage meter (0–∞)
 
@@ -30,6 +32,8 @@ public class Enemy : NetworkBehaviour
     public int weight = 100;
 
     public int connectionId;
+
+    public float hitstuntimer = 0f;
 
     public GameObject hitfx;
 
@@ -96,6 +100,16 @@ public class Enemy : NetworkBehaviour
         // flip logic
         ms.isFlipped = assignedSpawnPoint.y > 0;
 
+        if (hitstuntimer <= 0.01f)
+        {
+            mover.enabled = true;
+            ms.enabled = true;
+        }
+        else
+        {
+            hitstuntimer -= Time.deltaTime;
+        }
+
 
         if (transform.position.y >= 10 || transform.position.y <= -18 || transform.position.x >= 19 || transform.position.x <= -19)
         {
@@ -114,11 +128,9 @@ public class Enemy : NetworkBehaviour
     private IEnumerator HitstunCoroutine(float duration)
     {
         //hitfx.SetActive(true);
-        mover.enabled = false;
-        ms.enabled = false;
+        
         yield return new WaitForSeconds(duration);
-        mover.enabled = true;
-        ms.enabled = true;
+        
         //hitfx.SetActive(false);
     }
 
@@ -130,7 +142,9 @@ public class Enemy : NetworkBehaviour
     {
         var rb = GetComponent<Rigidbody2D>();
         rb?.AddForce(force, ForceMode2D.Impulse);
-        StartCoroutine(HitstunCoroutine(stunDuration));
+        mover.enabled = false;
+        ms.enabled = false;
+        hitstuntimer = (stunDuration < hitstuntimer) ? hitstuntimer : stunDuration;
     }
     #endregion
 
@@ -145,7 +159,7 @@ public class Enemy : NetworkBehaviour
         if (v < 35f)
         {
             // a bounce
-            GetComponent<Rigidbody2D>().velocity = -GetComponent<Rigidbody2D>().velocity * 0.6f;
+            GetComponent<Rigidbody2D>().velocity = -GetComponent<Rigidbody2D>().velocity * 0.3f;
             return;
         }
 

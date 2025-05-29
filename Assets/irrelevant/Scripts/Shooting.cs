@@ -94,7 +94,7 @@ public class MouseShooting : NetworkBehaviour
             Bar.gameObject.SetActive(false);
         }
         isKeyboard = !Application.isMobilePlatform;
-        deactivateMobile(isKeyboard);
+        deactivateMobile(!isKeyboard);
     }
 
     private void deactivateMobile(bool i)
