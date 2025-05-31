@@ -8,7 +8,7 @@ public class BotPlayer : MonoBehaviour
     public Transform player;
     public GameObject bulletPrefab;
     public Transform firePoint;
-    public float moveSpeed = 0.03f;
+    public float moveSpeed = 3f;
     public float shootingRange = 8f;
     public float fireRate = 1.5f;
     private float nextFireTime;
@@ -18,37 +18,44 @@ public class BotPlayer : MonoBehaviour
     private bool isAttacking = false;
     public float attackCooldown = 2f;
 
-    // Human-like behavior variables
-    private Vector3 targetPosition;
-    private float repositionTimer = 0f;
-    private float repositionInterval;
-    private bool isRepositioning = false;
+    // Natural movement variables
+    private Vector2 inputDirection = Vector2.zero;
+    private float directionChangeTimer = 0f;
+    private float directionChangeInterval = 2f;
 
     // Prediction and reaction
     private Vector3 lastPlayerPos;
     private Vector3 playerVelocity;
-    private float reactionDelay = 0.2f;
+    private float reactionDelay = 0.3f;
     private float nextReactionTime = 0f;
 
-    // Movement patterns
-    private float strafeDirection = 1f;
-    private float strafeTimer = 0f;
-    private float strafeDuration;
+    // Movement state
+    private MovementState currentState = MovementState.Approach;
+    private float stateTimer = 0f;
+    private float stateChangeCooldown = 3f;
+
+    // Physics
+    private Rigidbody2D rb;
 
     // Smart shooting
-    private LayerMask wallLayerMask = -1; // Set this in inspector to wall layer
-    private float lastShotTime = 0f;
     private int consecutiveShots = 0;
     private bool isReloading = false;
+
+    enum MovementState
+    {
+        Approach,    // Move toward player
+        Retreat,     // Move away from player
+        Strafe,      // Move sideways around player
+        Hold         // Stay in position
+    }
 
     private void Start()
     {
         r = new System.Random();
+        rb = GetComponent<Rigidbody2D>();
         player = FindAnyObjectByType<PlayerMovement>().transform;
-        targetPosition = transform.position;
         lastPlayerPos = player.position;
-        RandomizeRepositionInterval();
-        RandomizeStrafePattern();
+        ChooseNewDirection();
     }
 
     private void Update()
@@ -60,149 +67,200 @@ public class BotPlayer : MonoBehaviour
         }
 
         UpdatePlayerTracking();
-        RunHumanLikeLogic();
+        UpdateMovementState();
+        HandleMovementInput();
+
+        if (!isAttacking && Time.time >= nextReactionTime)
+        {
+            if (ShouldAttack())
+            {
+                StartCoroutine(DecideAttack());
+            }
+        }
+    }
+
+    void FixedUpdate()
+    {
+        // Apply movement using velocity (physics-based)
+        rb.velocity = inputDirection * moveSpeed;
     }
 
     void UpdatePlayerTracking()
     {
-        // Calculate player velocity for prediction
         playerVelocity = (player.position - lastPlayerPos) / Time.deltaTime;
         lastPlayerPos = player.position;
     }
 
-    void RunHumanLikeLogic()
+    void UpdateMovementState()
     {
-        // Human-like positioning
-        HandleRepositioning();
-        MoveTowardsTarget();
+        stateTimer += Time.deltaTime;
 
-        // Human-like attacking with smart timing
-        if (!isAttacking && Time.time >= nextReactionTime)
-        {
-            //if (ShouldAttack())
-            //{
-            //    StartCoroutine(DecideAttack());
-            //}
-            StartCoroutine(DecideAttack());
-        }
-    }
-
-    void HandleRepositioning()
-    {
-        repositionTimer += Time.deltaTime;
-
-        if (repositionTimer >= repositionInterval || isRepositioning)
-        {
-            float distanceToPlayer = Vector3.Distance(transform.position, player.position);
-
-            // Choose new position based on situation
-            if (distanceToPlayer < 2f) // Too close - back away
-            {
-                Vector3 awayFromPlayer = (transform.position - player.position).normalized;
-                targetPosition = transform.position + awayFromPlayer * 3f;
-            }
-            else if (distanceToPlayer > 10f) // Too far - get closer
-            {
-                Vector3 towardsPlayer = (player.position - transform.position).normalized;
-                targetPosition = player.position - towardsPlayer * dist;
-            }
-            else // Good distance - strafe around player
-            {
-                Vector3 dirToPlayer = (player.position - transform.position).normalized;
-                Vector3 perpendicular = new Vector3(-dirToPlayer.y, dirToPlayer.x, 0);
-                float strafeDistance = UnityEngine.Random.Range(2f, 4f);
-                targetPosition = transform.position + perpendicular * strafeDirection * strafeDistance;
-            }
-
-            // Add some randomness to make it less predictable
-            targetPosition += new Vector3(
-                (float)(r.NextDouble() - 0.5) * 2f,
-                (float)(r.NextDouble() - 0.5) * 2f,
-                0
-            );
-
-            repositionTimer = 0f;
-            isRepositioning = true;
-            RandomizeRepositionInterval();
-        }
-
-        // Check if reached target position
-        if (Vector3.Distance(transform.position, targetPosition) < 0.5f)
-        {
-            isRepositioning = false;
-        }
-    }
-
-    void MoveTowardsTarget()
-    {
-        Vector3 direction = (targetPosition - transform.position).normalized;
-        float distance = Vector3.Distance(transform.position, targetPosition);
-
-        if (distance > 0.1f)
-        {
-            // Add some human-like imperfection to movement
-            float wobble = Mathf.Sin(Time.time * 3f) * 0.1f;
-            Vector3 wobbleOffset = new Vector3(wobble, wobble * 0.5f, 0);
-
-            transform.position += (direction + wobbleOffset) * moveSpeed * Time.deltaTime;
-        }
-
-        // Handle strafing when near player
-        HandleStrafing();
-    }
-
-    void HandleStrafing()
-    {
         float distanceToPlayer = Vector3.Distance(transform.position, player.position);
 
-        if (distanceToPlayer <= shootingRange && distanceToPlayer >= 2f)
+        // Force state changes based on distance - maintain good fighting distance
+        if (distanceToPlayer < 2f)
         {
-            strafeTimer += Time.deltaTime;
-
-            if (strafeTimer >= strafeDuration)
+            currentState = MovementState.Retreat;
+            stateTimer = 0f;
+        }
+        else if (distanceToPlayer > 10f)
+        {
+            currentState = MovementState.Approach;
+            stateTimer = 0f;
+        }
+        else if (distanceToPlayer > 7f && currentState == MovementState.Retreat)
+        {
+            // Stop retreating when we're at good distance
+            currentState = MovementState.Strafe;
+            stateTimer = 0f;
+        }
+        else if (stateTimer >= stateChangeCooldown)
+        {
+            // Only randomly choose new state if we're in good range (3-7 units)
+            if (distanceToPlayer >= 3f && distanceToPlayer <= 7f)
             {
-                RandomizeStrafePattern();
+                ChooseNewMovementState();
             }
-
-            // Strafe perpendicular to player
-            Vector3 dirToPlayer = (player.position - transform.position).normalized;
-            Vector3 strafeDir = new Vector3(-dirToPlayer.y, dirToPlayer.x, 0) * strafeDirection;
-            transform.position += strafeDir * moveSpeed * 0.5f * Time.deltaTime;
+            stateTimer = 0f;
         }
     }
 
-    void RandomizeRepositionInterval()
+    void ChooseNewMovementState()
     {
-        repositionInterval = (float)(r.NextDouble() * 3f + 1f); // 1-4 seconds
+        float rand = (float)r.NextDouble();
+
+        // Prefer strafing when at good distance
+        if (rand < 0.2f)
+            currentState = MovementState.Approach;
+        else if (rand < 0.3f)
+            currentState = MovementState.Retreat;
+        else if (rand < 0.8f)
+            currentState = MovementState.Strafe;
+        else
+            currentState = MovementState.Hold;
+
+        stateChangeCooldown = (float)(r.NextDouble() * 2f + 1.5f); // 1.5-3.5 seconds
     }
 
-    void RandomizeStrafePattern()
+    void HandleMovementInput()
     {
-        strafeDirection = r.NextDouble() > 0.5 ? 1f : -1f;
-        strafeDuration = (float)(r.NextDouble() * 2f + 1f); // 1-3 seconds
-        strafeTimer = 0f;
+        directionChangeTimer += Time.deltaTime;
+
+        if (directionChangeTimer >= directionChangeInterval)
+        {
+            ChooseNewDirection();
+        }
+
+        Vector2 desiredDirection = Vector2.zero;
+        Vector3 dirToPlayer = (player.position - transform.position).normalized;
+
+        switch (currentState)
+        {
+            case MovementState.Approach:
+                desiredDirection = dirToPlayer;
+                // Add slight side movement for natural feel
+                Vector2 sideMovement = new Vector2(-dirToPlayer.y, dirToPlayer.x) * (float)(r.NextDouble() - 0.5) * 0.3f;
+                desiredDirection += sideMovement;
+
+                // Slow down when getting close to avoid overshooting
+                float distanceToPlayer = Vector3.Distance(transform.position, player.position);
+                if (distanceToPlayer < 4f)
+                {
+                    desiredDirection *= 0.5f; // Move slower when close
+                }
+                break;
+
+            case MovementState.Retreat:
+                desiredDirection = -dirToPlayer;
+                // Don't retreat too far - maintain fighting distance
+                float currentDistance = Vector3.Distance(transform.position, player.position);
+                if (currentDistance > 6f)
+                {
+                    desiredDirection *= 0.3f; // Slow retreat when already far enough
+                }
+                break;
+
+            case MovementState.Strafe:
+                Vector2 perpendicular = new Vector2(-dirToPlayer.y, dirToPlayer.x);
+                float strafeDir = r.NextDouble() > 0.5 ? 1f : -1f;
+                desiredDirection = perpendicular * strafeDir;
+
+                // Add slight approach/retreat component to maintain good distance
+                float strafeDistance = Vector3.Distance(transform.position, player.position);
+                if (strafeDistance < 3f)
+                {
+                    desiredDirection += (Vector2)(-dirToPlayer) * 0.3f; // Retreat slightly while strafing
+                }
+                else if (strafeDistance > 6f)
+                {
+                    desiredDirection += (Vector2)dirToPlayer * 0.3f; // Approach slightly while strafing
+                }
+                break;
+
+            case MovementState.Hold:
+                desiredDirection = Vector2.zero;
+                // Tiny random movements to simulate human "holding position"
+                desiredDirection += new Vector2(
+                    (float)(r.NextDouble() - 0.5) * 0.2f,
+                    (float)(r.NextDouble() - 0.5) * 0.2f
+                );
+                break;
+        }
+
+        // Smooth input changes (like human gradually changing direction)
+        inputDirection = Vector2.Lerp(inputDirection, desiredDirection.normalized, Time.deltaTime * 3f);
+
+        // Add wall avoidance
+        AvoidWalls();
+    }
+
+    void AvoidWalls()
+    {
+        // Check for walls in movement direction
+        float checkDistance = 1.5f;
+        RaycastHit2D hit = Physics2D.Raycast(transform.position, inputDirection, checkDistance);
+
+        if (hit.collider != null && hit.collider.CompareTag("Wall"))
+        {
+            // Wall detected - adjust direction
+            Vector2 wallNormal = hit.normal;
+            Vector2 avoidDirection = Vector2.Reflect(inputDirection, wallNormal);
+            inputDirection = Vector2.Lerp(inputDirection, avoidDirection, Time.deltaTime * 5f);
+        }
+
+        // Also check sides for better wall avoidance
+        Vector2 leftCheck = new Vector2(-inputDirection.y, inputDirection.x);
+        Vector2 rightCheck = new Vector2(inputDirection.y, -inputDirection.x);
+
+        RaycastHit2D leftHit = Physics2D.Raycast(transform.position, leftCheck, 0.8f);
+        RaycastHit2D rightHit = Physics2D.Raycast(transform.position, rightCheck, 0.8f);
+
+        if (leftHit.collider != null && leftHit.collider.CompareTag("Wall"))
+        {
+            inputDirection += rightCheck * 0.5f;
+        }
+        if (rightHit.collider != null && rightHit.collider.CompareTag("Wall"))
+        {
+            inputDirection += leftCheck * 0.5f;
+        }
+    }
+
+    void ChooseNewDirection()
+    {
+        directionChangeTimer = 0f;
+        directionChangeInterval = (float)(r.NextDouble() * 2f + 1f); // 1-3 seconds
     }
 
     bool ShouldAttack()
     {
         float distanceToPlayer = Vector3.Distance(transform.position, player.position);
 
-        // Don't attack if too far
         if (distanceToPlayer > shootingRange) return false;
-
-        // Don't attack if reloading (human-like reload behavior)
         if (isReloading) return false;
-
-        // Check if we have clear shot (no walls in the way)
         if (!HasClearShot()) return false;
 
-        // Don't attack if player is moving too fast (harder to hit)
-        if (playerVelocity.magnitude > 8f && r.NextDouble() > 0.3) return false;
-
-        // More likely to attack if player is closer
-        float attackChance = 1f - (distanceToPlayer / shootingRange);
-        attackChance += 0.3f; // Base chance
-
+        // Simple attack chance
+        float attackChance = 0.6f - (distanceToPlayer / shootingRange) * 0.3f;
         return r.NextDouble() < attackChance;
     }
 
@@ -211,8 +269,8 @@ public class BotPlayer : MonoBehaviour
         Vector3 directionToPlayer = (player.position - firePoint.position).normalized;
         float distanceToPlayer = Vector3.Distance(firePoint.position, player.position);
 
-        RaycastHit2D hit = Physics2D.Raycast(firePoint.position, directionToPlayer, distanceToPlayer, wallLayerMask);
-        return hit.collider == null; // No wall in the way
+        RaycastHit2D hit = Physics2D.Raycast(firePoint.position, directionToPlayer, distanceToPlayer);
+        return hit.collider == null || !hit.collider.CompareTag("Wall");
     }
 
     IEnumerator DecideAttack()
@@ -222,23 +280,23 @@ public class BotPlayer : MonoBehaviour
 
         float distanceToPlayer = Vector3.Distance(transform.position, player.position);
 
-        // Choose attack based on distance and situation
-        if (distanceToPlayer < 3f && r.NextDouble() > 0.7)
+        // Attack selection
+        if (distanceToPlayer < 10f && r.NextDouble() > 0.85) // 15% chance for teleport
         {
-            yield return StartCoroutine(AttackA()); // Teleport attack for close range
+            yield return StartCoroutine(AttackA());
         }
-        else if (consecutiveShots < 3 && r.NextDouble() > 0.4)
+        else if (r.NextDouble() > 0.6) // 40% chance for spread
         {
-            yield return StartCoroutine(AttackB()); // Spread shot
+            yield return StartCoroutine(AttackB());
         }
         else
         {
-            yield return StartCoroutine(SingleShot()); // Single precise shot
+            yield return StartCoroutine(SingleShot());
         }
 
-        // Human-like reload behavior
+        // Reload behavior
         consecutiveShots++;
-        if (consecutiveShots >= 5)
+        if (consecutiveShots >= UnityEngine.Random.Range(4, 7))
         {
             yield return StartCoroutine(ReloadBehavior());
         }
@@ -251,52 +309,54 @@ public class BotPlayer : MonoBehaviour
     {
         if (HasClearShot())
         {
-            AimAtPredictedPosition();
+            AimAtPlayer();
             FireBullet();
             consecutiveShots++;
         }
-        yield return new WaitForSeconds(0.1f);
+        yield return new WaitForSeconds(0.2f);
     }
 
     IEnumerator AttackA()
     {
         ShowIndicator();
-        yield return new WaitForSeconds(1.5f); // Shorter telegraph
+        yield return new WaitForSeconds(1.5f);
         HideIndicator();
 
-        // Only teleport if it makes sense
-        float distanceToPlayer = Vector3.Distance(transform.position, player.position);
-        if (distanceToPlayer < 6f && HasClearShot())
-        {
-            // Teleport near player but not exactly on them
-            
-        }
+        // Teleport near player
         Vector3 offset = new Vector3(
-                (float)(r.NextDouble() - 0.5) * 4f,
-                (float)(r.NextDouble() - 0.5) * 4f,
-                0
-            );
-        transform.position = player.position + offset;
+            (float)(r.NextDouble() - 0.5) * 6f,
+            (float)(r.NextDouble() - 0.5) * 6f,
+            0
+        );
 
-        AimAtPredictedPosition();
+        Vector3 teleportPos = player.position + offset;
+
+        // Check if teleport position is safe
+        Collider2D overlap = Physics2D.OverlapPoint(teleportPos);
+        if (overlap == null || !overlap.CompareTag("Wall"))
+        {
+            transform.position = teleportPos;
+            rb.velocity = Vector2.zero; // Stop momentum
+        }
+
+        AimAtPlayer();
         FireBullet();
         yield return new WaitForSeconds(0.5f);
     }
 
     IEnumerator AttackB()
     {
-        int shots = UnityEngine.Random.Range(3, 6); // Variable shot count
+        int shots = UnityEngine.Random.Range(3, 6);
 
         for (int i = 0; i < shots; i++)
         {
             if (HasClearShot())
             {
-                
+                AimAtPlayer();
+                float spread = (i - shots / 2f) * 12f;
+                firePoint.rotation *= Quaternion.Euler(0, 0, spread);
+                FireBullet();
             }
-            AimAtPredictedPosition();
-            float spread = (i - shots / 2f) * 15f; // Spread shots
-            firePoint.rotation *= Quaternion.Euler(0, 0, spread);
-            FireBullet();
             yield return new WaitForSeconds(0.1f);
         }
         consecutiveShots += shots;
@@ -306,24 +366,22 @@ public class BotPlayer : MonoBehaviour
     IEnumerator ReloadBehavior()
     {
         isReloading = true;
-        GetComponent<SpriteRenderer>().color = Color.blue; // Visual indicator
-        yield return new WaitForSeconds(2f); // Reload time
+        GetComponent<SpriteRenderer>().color = Color.blue;
+        yield return new WaitForSeconds(1.5f);
         GetComponent<SpriteRenderer>().color = Color.white;
         consecutiveShots = 0;
         isReloading = false;
     }
 
-    void AimAtPredictedPosition()
+    void AimAtPlayer()
     {
-        // Predict where player will be
-        float bulletSpeed = 10f;
-        float timeToTarget = Vector3.Distance(firePoint.position, player.position) / bulletSpeed;
-        Vector3 predictedPosition = player.position + playerVelocity * timeToTarget;
+        // Simple prediction
+        Vector3 predictedPosition = player.position + playerVelocity * 0.25f;
 
-        // Add some human imperfection
+        // Add slight inaccuracy
         predictedPosition += new Vector3(
-            (float)(r.NextDouble() - 0.5) * 1f,
-            (float)(r.NextDouble() - 0.5) * 1f,
+            (float)(r.NextDouble() - 0.5) * 0.8f,
+            (float)(r.NextDouble() - 0.5) * 0.8f,
             0
         );
 
@@ -357,6 +415,5 @@ public class BotPlayer : MonoBehaviour
         rb.velocity = firePoint.right * 10f;
 
         Destroy(bullet, 3f);
-        lastShotTime = Time.time;
     }
 }

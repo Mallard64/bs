@@ -3,12 +3,17 @@
 --- !u!78 &1
 TagManager:
   serializedVersion: 2
-  tags: []
+  tags:
+  - WeaponSpawnPoint
+  - SpawnPoint
+  - Wall
+  - Bushes
+  - Pickup
   layers:
   - Default
   - TransparentFX
   - Ignore Raycast
-  - 
+  - Unc
   - Water
   - UI
   - 
