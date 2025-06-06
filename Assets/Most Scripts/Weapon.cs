@@ -1,3 +1,4 @@
+// Weapon.cs - Complete updated version
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -26,6 +27,10 @@ public class Weapon : NetworkBehaviour
     public int id;
 
     [SyncVar] public int maxAmmo;
+
+    public int maxSwaps;
+
+    public bool isSpecial;
 
     // Sound components
     public AudioSource audioSource;
@@ -56,11 +61,23 @@ public class Weapon : NetworkBehaviour
     [ClientRpc]
     public void RpcPlayShootAnimation()
     {
-        Animator targetAnimator = GetComponent<Animator>();
-        if (targetAnimator != null)
+        if (!isSpecial)
         {
-            targetAnimator.Play("shoot");
-            timer = timerMax;
+            Animator targetAnimator = GetComponent<Animator>();
+            if (targetAnimator != null)
+            {
+                targetAnimator.Play("shoot");
+                timer = timerMax;
+            }
+        }
+        else
+        {
+            Animator targetAnimator = GetComponent<Animator>();
+            if (targetAnimator != null)
+            {
+                targetAnimator.Play("shoot" + parent.GetComponent<MouseShooting>().swapModeNum.ToString());
+                timer = timerMax;
+            }
         }
 
         // Play shoot sound
@@ -94,9 +111,33 @@ public class Weapon : NetworkBehaviour
     {
         if (parent != null)
         {
+            parent.GetComponent<MouseShooting>().swapModeNumMax = maxSwaps;
+            parent.GetComponent<MouseShooting>().hasSpecial = isSpecial;
             parent.GetComponent<MouseShooting>().bulletSpeed = bulletSpeed;
             parent.GetComponent<MouseShooting>().bulletLifetime = bulletLifetime;
             transform.position = parent.transform.position;
+
+            // Update shot cooldown based on weapon mode for sword weapons
+            var mouseShooting = parent.GetComponent<MouseShooting>();
+            if (id == 2) // Sword weapon
+            {
+                switch (mouseShooting.swapModeNum)
+                {
+                    case 0: // Stab - fastest
+                        mouseShooting.shotCooldownTime = 0.3f;
+                        break;
+                    case 1: // Slice - medium
+                        mouseShooting.shotCooldownTime = 0.6f;
+                        break;
+                    case 2: // Throw - slowest, consumes ammo
+                        mouseShooting.shotCooldownTime = 1.2f;
+                        break;
+                }
+            }
+            else
+            {
+                mouseShooting.shotCooldownTime = end + startup + shot;
+            }
         }
 
         if (parent != null)
@@ -109,34 +150,45 @@ public class Weapon : NetworkBehaviour
 
             h = true;
 
-            // Update parent's shot cooldown time
-            parent.GetComponent<MouseShooting>().shotCooldownTime = end + startup + shot;
-
-            // Sync ammo values
-            if (maxAmmo != parent.GetComponent<MouseShooting>().maxAmmo)
+            // Sync ammo values - special handling for sword modes
+            var mouseShooting = parent.GetComponent<MouseShooting>();
+            if (id == 2 && mouseShooting.swapModeNum == 2) // Sword throw mode
             {
-                parent.GetComponent<MouseShooting>().maxAmmo = maxAmmo;
-                parent.GetComponent<MouseShooting>().currentAmmo = maxAmmo;
+                // Thrown swords consume ammo
+                if (maxAmmo != mouseShooting.maxAmmo)
+                {
+                    mouseShooting.maxAmmo = maxAmmo;
+                    mouseShooting.currentAmmo = maxAmmo;
+                }
+            }
+            else if (id == 2) // Other sword modes don't consume ammo
+            {
+                mouseShooting.maxAmmo = 999; // Infinite ammo for stab/slice
+                mouseShooting.currentAmmo = 999;
+            }
+            else
+            {
+                // Normal weapon ammo handling
+                if (maxAmmo != mouseShooting.maxAmmo)
+                {
+                    mouseShooting.maxAmmo = maxAmmo;
+                    mouseShooting.currentAmmo = maxAmmo;
+                }
             }
 
             // Handle movement-based rotation when not shooting
-            var mouseShooting = parent.GetComponent<MouseShooting>();
             if (!mouseShooting.isShooting && !mouseShooting.isAiming)
             {
                 float angle = Mathf.Atan2(parent.GetComponent<Rigidbody2D>().velocity.y, parent.GetComponent<Rigidbody2D>().velocity.x) * Mathf.Rad2Deg;
                 transform.rotation = Quaternion.Euler(0, 0, angle);
                 GetComponent<SpriteRenderer>().flipY = ((angle + 360) % 360) > 180;
-                transform.rotation = Quaternion.Euler(0, 0, angle);
             }
             else if (mouseShooting.isAiming && !mouseShooting.isShooting)
             {
                 float angle = Mathf.Atan2(mouseShooting.v.y, mouseShooting.v.x) * Mathf.Rad2Deg;
                 transform.rotation = Quaternion.Euler(0, 0, angle);
                 GetComponent<SpriteRenderer>().flipY = ((angle + 360) % 360) > 180;
-                transform.rotation = Quaternion.Euler(0, 0, angle);
             }
-
-
 
             // Handle auto-aiming display
             if (mouseShooting.isAuto)

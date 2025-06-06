@@ -20,11 +20,11 @@ public class HoverNoClick : MonoBehaviour,
         if (isHovering)
         {
             Debug.Log("Hovering but not clicking!");
-            daddy.GetComponent<MouseShooting>().enabled = false;
+            daddy.GetComponent<MouseShooting>().isShooting = true;
         }
         else
         {
-            daddy.GetComponent<MouseShooting>().enabled = true;
+            daddy.GetComponent<MouseShooting>().isShooting = false;
         }
     }
 }

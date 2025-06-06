@@ -1,4 +1,4 @@
-// MouseShooting.cs
+// MouseShooting.cs - Complete updated version
 using System.Collections;
 using UnityEngine;
 using Mirror;
@@ -12,6 +12,14 @@ using System;
 public class MouseShooting : NetworkBehaviour
 {
     public bool isKeyboard = false;
+
+    public Button swapMode;
+
+    public int swapModeNum = 0;
+
+    public int swapModeNumMax = 0;
+
+    public bool hasSpecial = false;
 
     [Header("Weapon Prefabs (0 = none)")]
     public GameObject[] weapons;
@@ -161,6 +169,9 @@ public class MouseShooting : NetworkBehaviour
         }
         if (!isLocalPlayer) return;
         PanelBar.fillAmount = ((float)currentAmmo) / maxAmmo;
+
+        swapMode.gameObject.SetActive(hasSpecial);
+
         if (isFlipped)
         {
             transform.localEulerAngles = new Vector3(0, 0, 180);
@@ -250,10 +261,17 @@ public class MouseShooting : NetworkBehaviour
     }
     #endregion
 
+    public void SwapWeaponNum()
+    {
+        swapModeNum = (swapModeNum + 1) % swapModeNumMax;
+    }
+
     private void HandleShootingInput()
     {
         if (!canShoot) return;
+        if (isShooting) return;
         if (!isLocalPlayer) return;
+        if (weaponNetId == 0) return;
         if (!isKeyboard)
         {
             if (weaponNetId == 0) return;
@@ -284,18 +302,16 @@ public class MouseShooting : NetworkBehaviour
                 }
             }
 
-            if (mag <= 0.1f && isPressed && currentAmmo > 0 && !isReloading && shotCooldown <= 0f)
+            if (mag <= 0.1f && isPressed && CanShoot())
             {
                 Debug.Log("autoaim");
-                currentAmmo--;
                 d = GetComponent<Autoaim>().FindTarget();
                 if (d == Vector3.zero)
                 {
                     d = dir;
                 }
                 isAuto = true;
-                CmdPerformShoot(d);
-                shotCooldown = shotCooldownTime;
+                PerformAutoAim(d);
                 return;
             }
             else
@@ -303,11 +319,9 @@ public class MouseShooting : NetworkBehaviour
                 isAuto = false;
             }
 
-            if (mag >= 0.6f && currentAmmo > 0 && !isReloading && shotCooldown <= 0f)
+            if (mag >= 0.6f && CanShoot())
             {
-                currentAmmo--;
-                CmdPerformShoot(dir);
-                shotCooldown = shotCooldownTime;
+                PerformShoot(dir);
             }
 
             if (currentAmmo <= 0 && !isReloading)
@@ -377,21 +391,38 @@ public class MouseShooting : NetworkBehaviour
     private void PerformAutoAim(Vector3 fallbackDir)
     {
         if (!isLocalPlayer) return;
-        currentAmmo--;
-        Vector3 targetDir = GetComponent<Autoaim>().FindTarget();
 
-        if (targetDir == Vector3.zero)
-            targetDir = fallbackDir;
+        // Only consume ammo for certain weapon modes
+        if (weaponNetId != 0 && NetworkClient.spawned.TryGetValue(weaponNetId, out var weaponNi))
+        {
+            var weapon = weaponNi.GetComponent<Weapon>();
+            // Only consume ammo for throw mode on sword (id=2, mode=2) or non-sword weapons
+            if (weapon.id != 2 || (weapon.id == 2 && swapModeNum == 2))
+            {
+                currentAmmo--;
+            }
+        }
 
         isAuto = true;
-        CmdPerformShoot(targetDir);
+        CmdPerformShoot(fallbackDir);
         shotCooldown = shotCooldownTime;
     }
 
     private void PerformShoot(Vector3 shootDir)
     {
         if (!isLocalPlayer) return;
-        currentAmmo--;
+
+        // Only consume ammo for certain weapon modes
+        if (weaponNetId != 0 && NetworkClient.spawned.TryGetValue(weaponNetId, out var weaponNi))
+        {
+            var weapon = weaponNi.GetComponent<Weapon>();
+            // Only consume ammo for throw mode on sword (id=2, mode=2) or non-sword weapons
+            if (weapon.id != 2 || (weapon.id == 2 && swapModeNum == 2))
+            {
+                currentAmmo--;
+            }
+        }
+
         isAuto = false;
         CmdPerformShoot(shootDir);
         shotCooldown = shotCooldownTime;
@@ -517,6 +548,64 @@ public class MouseShooting : NetworkBehaviour
         Destroy(bullet, bulletLifetime);
     }
 
+    private void ShootSword(Vector3 direction)
+    {
+        switch (swapModeNum)
+        {
+            case 0: // Stab mode
+                Vector3 stabPos = firePoint.position + direction.normalized * 0.7f;
+                var stabHitbox = Instantiate(bulletPrefabs[2], stabPos, Quaternion.identity);
+                float stabAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+                stabHitbox.transform.rotation = Quaternion.Euler(0, 0, stabAngle);
+                stabHitbox.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+                stabHitbox.GetComponent<Bullet>().parent = gameObject;
+                NetworkServer.Spawn(stabHitbox);
+                Destroy(stabHitbox, 0.15f);
+                break;
+
+            case 1: // Slice mode (wide arc)
+                int slices = 5;
+                float sliceSpread = 60f;
+
+                for (int i = -2; i <= 2; i++)
+                {
+                    float angleOffset = i * (sliceSpread / 4f);
+
+                    // Rotate the original direction vector
+                    Vector3 sliceDir = Quaternion.Euler(0, 0, angleOffset) * direction;
+
+                    Vector3 slicePos = firePoint.position + sliceDir.normalized * 0.7f;
+                    var sliceHitbox = Instantiate(bulletPrefabs[2], slicePos, Quaternion.identity);
+
+                    float sliceAngle = Mathf.Atan2(sliceDir.y, sliceDir.x) * Mathf.Rad2Deg;
+                    sliceHitbox.transform.rotation = Quaternion.Euler(0, 0, sliceAngle);
+
+                    sliceHitbox.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+                    sliceHitbox.GetComponent<Bullet>().parent = gameObject;
+                    NetworkServer.Spawn(sliceHitbox);
+                    Destroy(sliceHitbox, 0.1f);
+                }
+                break;
+
+            case 2: // Throwing mode
+                Vector3 throwPos = firePoint.position + direction.normalized * 0.7f;
+                GameObject thrownSword = Instantiate(bulletPrefabs[4], throwPos, Quaternion.identity);
+                float throwAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+                thrownSword.transform.rotation = Quaternion.Euler(0, 0, throwAngle);
+                var rb = thrownSword.GetComponent<Rigidbody2D>();
+                if (rb != null)
+                {
+                    rb.velocity = direction.normalized * bulletSpeed;
+                    rb.angularVelocity = 360f;
+                }
+                thrownSword.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+                thrownSword.GetComponent<Bullet>().parent = gameObject;
+                NetworkServer.Spawn(thrownSword);
+                Destroy(thrownSword, bulletLifetime * 1.2f);
+                break;
+        }
+    }
+
     private IEnumerator ReloadRoutine()
     {
         isReloading = true;
@@ -596,7 +685,7 @@ public class MouseShooting : NetworkBehaviour
 
     #region UI Updates
     void OnAmmoChanged(int oldVal, int newVal) { if (isLocalPlayer) UpdateUI(); }
-    void UpdateUI() {}
+    void UpdateUI() { }
     #endregion
 
     #region SyncVar Hooks
@@ -605,3 +694,4 @@ public class MouseShooting : NetworkBehaviour
     void OnWeaponIdCChanged(uint oldId, uint newId) { Debug.Log($"WeaponIdC: {oldId} -> {newId}"); }
     #endregion
 }
+

@@ -34,14 +34,14 @@ public class ShopMenu : NetworkBehaviour
         {
             menu.SetActive(false);
             t.enabled = true;
-            GetComponent<MouseShooting>().enabled = true;
+            GetComponent<MouseShooting>().isShooting = false;
             other.SetActive(true);
         }
         else
         {
             menu.SetActive(true);
             t.enabled = false;
-            GetComponent<MouseShooting>().enabled = false;
+            GetComponent<MouseShooting>().isShooting = true;
             other.SetActive(false);
         }
     }

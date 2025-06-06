@@ -4,6 +4,12 @@ using System.Collections.Generic;
 using TMPro;
 using System.Collections;
 using UnityEngine.SceneManagement;
+using System;
+using System.Collections.Generic;
+using UnityEngine;
+using Mirror;
+using Unity.Services.Authentication;
+using Unity.Services.Core;
 
 public class CustomNetworkManager1 : NetworkManager
 {
@@ -67,10 +73,41 @@ public class CustomNetworkManager1 : NetworkManager
     private List<Vector3> originalWeaponSpawnPoints = new List<Vector3>();
     private List<TextMeshProUGUI> originalTexts = new List<TextMeshProUGUI>();
 
+    //public Player localPlayer;
+    private string m_SessionId = "";
+    private string m_Username;
+    private string m_UserId;
+
+    /// <summary>
+    /// Flag to determine if the user is logged into the backend.
+    /// </summary>
+    public bool isLoggedIn = false;
+
+    /// <summary>
+    /// List of players currently connected to the server.
+    /// </summary>
+    //private List<Player> m_Players;
+
     public override void Awake()
     {
         base.Awake();
         Debug.Log("Auto-connecting as Client to: " + networkAddress);
+    }
+
+    public async void UnityLogin()
+    {
+        try
+        {
+            await UnityServices.InitializeAsync();
+            await AuthenticationService.Instance.SignInAnonymouslyAsync();
+            Debug.Log("Logged into Unity, player ID: " + AuthenticationService.Instance.PlayerId);
+            isLoggedIn = true;
+        }
+        catch (Exception e)
+        {
+            isLoggedIn = false;
+            Debug.Log(e);
+        }
     }
 
     public override void Start()
@@ -557,8 +594,8 @@ public class CustomNetworkManager1 : NetworkManager
         {
             // Fallback to random position within area
             spawnPosition = new Vector2(
-                Random.Range(spawnAreaMin.x, spawnAreaMax.x),
-                Random.Range(spawnAreaMin.y, spawnAreaMax.y)
+                UnityEngine.Random.Range(spawnAreaMin.x, spawnAreaMax.x),
+                UnityEngine.Random.Range(spawnAreaMin.y, spawnAreaMax.y)
             );
         }
 
@@ -586,7 +623,7 @@ public class CustomNetworkManager1 : NetworkManager
         // 4) Spawn the actual weapon
         if (NetworkServer.active && weaponPickupPrefabs != null && weaponPickupPrefabs.Length > 0)
         {
-            var prefab = weaponPickupPrefabs[Random.Range(0, weaponPickupPrefabs.Length)];
+            var prefab = weaponPickupPrefabs[UnityEngine.Random.Range(0, weaponPickupPrefabs.Length)];
             var go = Instantiate(prefab, position, Quaternion.identity);
             NetworkServer.Spawn(go);
         }

@@ -53,9 +53,10 @@ MonoBehaviour:
   syncMode: 0
   syncInterval: 0
   bulletDamage: 5
-  knockbackBase: 30
+  knockbackBase: 15
   knockbackScaling: 40
   shooterId: 0
+  shotByEnemy: 0
   outwardOffset: 0.3
   parent: {fileID: 0}
 --- !u!212 &856623730395010133

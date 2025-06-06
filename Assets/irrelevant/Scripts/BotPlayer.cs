@@ -8,51 +8,65 @@ public class BotPlayer : MonoBehaviour
     public Transform player;
     public GameObject bulletPrefab;
     public Transform firePoint;
-    public float moveSpeed = 3f;
-    public float shootingRange = 8f;
-    public float fireRate = 1.5f;
+    public float moveSpeed = 4f;
+    public float shootingRange = 10f;
+    public float fireRate = 1.2f;
     private float nextFireTime;
-    public float dist = 4f;
+    public float dist = 5f;
     public System.Random r;
 
     private bool isAttacking = false;
-    public float attackCooldown = 2f;
+    public float attackCooldown = 1.5f;
 
-    // Natural movement variables
+    // Enhanced movement variables
     private Vector2 inputDirection = Vector2.zero;
     private float directionChangeTimer = 0f;
-    private float directionChangeInterval = 2f;
+    private float directionChangeInterval = 1.5f;
 
     // Prediction and reaction
     private Vector3 lastPlayerPos;
     private Vector3 playerVelocity;
-    private float reactionDelay = 0.3f;
+    private float reactionDelay = 0.25f;
     private float nextReactionTime = 0f;
 
-    // Movement state
-    private MovementState currentState = MovementState.Approach;
+    // Enhanced movement state
+    private MovementState currentState = MovementState.Hunt;
     private float stateTimer = 0f;
-    private float stateChangeCooldown = 3f;
+    private float stateChangeCooldown = 2.5f;
 
     // Physics
     private Rigidbody2D rb;
 
-    // Smart shooting
+    // Enhanced combat system
     private int consecutiveShots = 0;
     private bool isReloading = false;
+    private float aggressionLevel = 1f; // Increases over time
+    private int attackPattern = 0;
+
+    // Special abilities
+    private bool canDash = true;
+    private float dashCooldown = 8f;
+    private float lastDashTime = 0f;
+
+    // Visual feedback
+    private SpriteRenderer spriteRenderer;
+    private Color originalColor;
 
     enum MovementState
     {
-        Approach,    // Move toward player
-        Retreat,     // Move away from player
-        Strafe,      // Move sideways around player
-        Hold         // Stay in position
+        Hunt,        // Aggressively pursue player
+        Circle,      // Circle around player at medium distance
+        Retreat,     // Back away temporarily
+        Ambush,      // Hold position and wait
+        Berserk      // Fast, erratic movement when low health or high aggression
     }
 
     private void Start()
     {
         r = new System.Random();
         rb = GetComponent<Rigidbody2D>();
+        spriteRenderer = GetComponent<SpriteRenderer>();
+        originalColor = spriteRenderer.color;
         player = FindAnyObjectByType<PlayerMovement>().transform;
         lastPlayerPos = player.position;
         ChooseNewDirection();
@@ -67,6 +81,7 @@ public class BotPlayer : MonoBehaviour
         }
 
         UpdatePlayerTracking();
+        UpdateAggressionLevel();
         UpdateMovementState();
         HandleMovementInput();
 
@@ -77,12 +92,28 @@ public class BotPlayer : MonoBehaviour
                 StartCoroutine(DecideAttack());
             }
         }
+
+        UpdateSpecialAbilities();
     }
 
     void FixedUpdate()
     {
-        // Apply movement using velocity (physics-based)
-        rb.velocity = inputDirection * moveSpeed;
+        // Apply movement with speed scaling based on state
+        float speedMultiplier = GetSpeedMultiplier();
+        rb.velocity = inputDirection * moveSpeed * speedMultiplier;
+    }
+
+    float GetSpeedMultiplier()
+    {
+        switch (currentState)
+        {
+            case MovementState.Berserk: return 1.5f;
+            case MovementState.Hunt: return 1.2f;
+            case MovementState.Retreat: return 1.3f;
+            case MovementState.Circle: return 1f;
+            case MovementState.Ambush: return 0.3f;
+            default: return 1f;
+        }
     }
 
     void UpdatePlayerTracking()
@@ -91,55 +122,70 @@ public class BotPlayer : MonoBehaviour
         lastPlayerPos = player.position;
     }
 
+    void UpdateAggressionLevel()
+    {
+        // Increase aggression over time (makes boss more dangerous)
+        aggressionLevel += Time.deltaTime * 0.1f;
+        aggressionLevel = Mathf.Clamp(aggressionLevel, 1f, 3f);
+
+        // Visual feedback for aggression
+        if (aggressionLevel > 2f)
+        {
+            spriteRenderer.color = Color.Lerp(originalColor, Color.red, 0.3f);
+        }
+    }
+
     void UpdateMovementState()
     {
         stateTimer += Time.deltaTime;
-
         float distanceToPlayer = Vector3.Distance(transform.position, player.position);
 
-        // Force state changes based on distance - maintain good fighting distance
-        if (distanceToPlayer < 2f)
+        // Force state changes based on conditions
+        if (aggressionLevel > 2.5f && r.NextDouble() > 0.8f)
+        {
+            currentState = MovementState.Berserk;
+            stateTimer = 0f;
+        }
+        else if (distanceToPlayer < 2f && currentState != MovementState.Retreat)
         {
             currentState = MovementState.Retreat;
             stateTimer = 0f;
         }
-        else if (distanceToPlayer > 10f)
+        else if (distanceToPlayer > 12f)
         {
-            currentState = MovementState.Approach;
-            stateTimer = 0f;
-        }
-        else if (distanceToPlayer > 7f && currentState == MovementState.Retreat)
-        {
-            // Stop retreating when we're at good distance
-            currentState = MovementState.Strafe;
+            currentState = MovementState.Hunt;
             stateTimer = 0f;
         }
         else if (stateTimer >= stateChangeCooldown)
         {
-            // Only randomly choose new state if we're in good range (3-7 units)
-            if (distanceToPlayer >= 3f && distanceToPlayer <= 7f)
-            {
-                ChooseNewMovementState();
-            }
+            ChooseNewMovementState(distanceToPlayer);
             stateTimer = 0f;
         }
     }
 
-    void ChooseNewMovementState()
+    void ChooseNewMovementState(float distanceToPlayer)
     {
         float rand = (float)r.NextDouble();
 
-        // Prefer strafing when at good distance
-        if (rand < 0.2f)
-            currentState = MovementState.Approach;
-        else if (rand < 0.3f)
-            currentState = MovementState.Retreat;
-        else if (rand < 0.8f)
-            currentState = MovementState.Strafe;
+        // State selection based on distance and aggression
+        if (distanceToPlayer < 4f)
+        {
+            if (rand < 0.4f) currentState = MovementState.Circle;
+            else if (rand < 0.7f) currentState = MovementState.Retreat;
+            else currentState = MovementState.Hunt;
+        }
+        else if (distanceToPlayer < 8f)
+        {
+            if (rand < 0.5f) currentState = MovementState.Circle;
+            else if (rand < 0.8f) currentState = MovementState.Hunt;
+            else currentState = MovementState.Ambush;
+        }
         else
-            currentState = MovementState.Hold;
+        {
+            currentState = MovementState.Hunt;
+        }
 
-        stateChangeCooldown = (float)(r.NextDouble() * 2f + 1.5f); // 1.5-3.5 seconds
+        stateChangeCooldown = (float)(r.NextDouble() * 2f + 1f) / aggressionLevel;
     }
 
     void HandleMovementInput()
@@ -153,102 +199,86 @@ public class BotPlayer : MonoBehaviour
 
         Vector2 desiredDirection = Vector2.zero;
         Vector3 dirToPlayer = (player.position - transform.position).normalized;
+        float distanceToPlayer = Vector3.Distance(transform.position, player.position);
 
         switch (currentState)
         {
-            case MovementState.Approach:
+            case MovementState.Hunt:
                 desiredDirection = dirToPlayer;
-                // Add slight side movement for natural feel
-                Vector2 sideMovement = new Vector2(-dirToPlayer.y, dirToPlayer.x) * (float)(r.NextDouble() - 0.5) * 0.3f;
-                desiredDirection += sideMovement;
+                // Predict player movement for interception
+                Vector3 predictedPos = player.position + playerVelocity * 0.5f;
+                desiredDirection = (predictedPos - transform.position).normalized;
+                break;
 
-                // Slow down when getting close to avoid overshooting
-                float distanceToPlayer = Vector3.Distance(transform.position, player.position);
+            case MovementState.Circle:
+                Vector2 perpendicular = new Vector2(-dirToPlayer.y, dirToPlayer.x);
+                float circleDir = Mathf.Sign(Vector3.Cross(dirToPlayer, transform.right).z);
+                desiredDirection = perpendicular * circleDir;
+
+                // Maintain optimal distance while circling
                 if (distanceToPlayer < 4f)
-                {
-                    desiredDirection *= 0.5f; // Move slower when close
-                }
+                    desiredDirection += (Vector2)(-dirToPlayer) * 0.4f;
+                else if (distanceToPlayer > 7f)
+                    desiredDirection += (Vector2)dirToPlayer * 0.4f;
                 break;
 
             case MovementState.Retreat:
                 desiredDirection = -dirToPlayer;
-                // Don't retreat too far - maintain fighting distance
-                float currentDistance = Vector3.Distance(transform.position, player.position);
-                if (currentDistance > 6f)
-                {
-                    desiredDirection *= 0.3f; // Slow retreat when already far enough
-                }
+                // Add evasive side movement
+                Vector2 evasion = new Vector2(-dirToPlayer.y, dirToPlayer.x) * (float)(r.NextDouble() - 0.5) * 2f;
+                desiredDirection += evasion * 0.5f;
                 break;
 
-            case MovementState.Strafe:
-                Vector2 perpendicular = new Vector2(-dirToPlayer.y, dirToPlayer.x);
-                float strafeDir = r.NextDouble() > 0.5 ? 1f : -1f;
-                desiredDirection = perpendicular * strafeDir;
-
-                // Add slight approach/retreat component to maintain good distance
-                float strafeDistance = Vector3.Distance(transform.position, player.position);
-                if (strafeDistance < 3f)
-                {
-                    desiredDirection += (Vector2)(-dirToPlayer) * 0.3f; // Retreat slightly while strafing
-                }
-                else if (strafeDistance > 6f)
-                {
-                    desiredDirection += (Vector2)dirToPlayer * 0.3f; // Approach slightly while strafing
-                }
-                break;
-
-            case MovementState.Hold:
+            case MovementState.Ambush:
+                // Stay mostly still but track player
                 desiredDirection = Vector2.zero;
-                // Tiny random movements to simulate human "holding position"
-                desiredDirection += new Vector2(
-                    (float)(r.NextDouble() - 0.5) * 0.2f,
-                    (float)(r.NextDouble() - 0.5) * 0.2f
+                break;
+
+            case MovementState.Berserk:
+                // Erratic, aggressive movement
+                Vector2 randomComponent = new Vector2(
+                    (float)(r.NextDouble() - 0.5) * 2f,
+                    (float)(r.NextDouble() - 0.5) * 2f
                 );
+                desiredDirection = (dirToPlayer + (Vector3)randomComponent * 0.7f).normalized;
                 break;
         }
 
-        // Smooth input changes (like human gradually changing direction)
-        inputDirection = Vector2.Lerp(inputDirection, desiredDirection.normalized, Time.deltaTime * 3f);
+        GetComponent<Animator>().Play("walk");
 
-        // Add wall avoidance
+        // Smooth input changes
+        inputDirection = Vector2.Lerp(inputDirection, desiredDirection.normalized, Time.deltaTime * 4f);
+
+        // Enhanced wall avoidance
         AvoidWalls();
     }
 
     void AvoidWalls()
     {
-        // Check for walls in movement direction
-        float checkDistance = 1.5f;
+        float checkDistance = 2f;
         RaycastHit2D hit = Physics2D.Raycast(transform.position, inputDirection, checkDistance);
 
         if (hit.collider != null && hit.collider.CompareTag("Wall"))
         {
-            // Wall detected - adjust direction
             Vector2 wallNormal = hit.normal;
             Vector2 avoidDirection = Vector2.Reflect(inputDirection, wallNormal);
-            inputDirection = Vector2.Lerp(inputDirection, avoidDirection, Time.deltaTime * 5f);
+            inputDirection = Vector2.Lerp(inputDirection, avoidDirection, Time.deltaTime * 6f);
         }
+    }
 
-        // Also check sides for better wall avoidance
-        Vector2 leftCheck = new Vector2(-inputDirection.y, inputDirection.x);
-        Vector2 rightCheck = new Vector2(inputDirection.y, -inputDirection.x);
-
-        RaycastHit2D leftHit = Physics2D.Raycast(transform.position, leftCheck, 0.8f);
-        RaycastHit2D rightHit = Physics2D.Raycast(transform.position, rightCheck, 0.8f);
-
-        if (leftHit.collider != null && leftHit.collider.CompareTag("Wall"))
+    void UpdateSpecialAbilities()
+    {
+        // Dash ability cooldown
+        if (Time.time - lastDashTime > dashCooldown)
         {
-            inputDirection += rightCheck * 0.5f;
-        }
-        if (rightHit.collider != null && rightHit.collider.CompareTag("Wall"))
-        {
-            inputDirection += leftCheck * 0.5f;
+            canDash = true;
         }
     }
 
     void ChooseNewDirection()
     {
         directionChangeTimer = 0f;
-        directionChangeInterval = (float)(r.NextDouble() * 2f + 1f); // 1-3 seconds
+        directionChangeInterval = (float)(r.NextDouble() * 1.5f + 0.5f) / aggressionLevel;
     }
 
     bool ShouldAttack()
@@ -259,8 +289,8 @@ public class BotPlayer : MonoBehaviour
         if (isReloading) return false;
         if (!HasClearShot()) return false;
 
-        // Simple attack chance
-        float attackChance = 0.6f - (distanceToPlayer / shootingRange) * 0.3f;
+        // Aggression affects attack frequency
+        float attackChance = (0.6f + aggressionLevel * 0.2f) - (distanceToPlayer / shootingRange) * 0.3f;
         return r.NextDouble() < attackChance;
     }
 
@@ -276,128 +306,195 @@ public class BotPlayer : MonoBehaviour
     IEnumerator DecideAttack()
     {
         isAttacking = true;
-        nextReactionTime = Time.time + reactionDelay;
+        nextReactionTime = Time.time + reactionDelay / aggressionLevel;
 
         float distanceToPlayer = Vector3.Distance(transform.position, player.position);
 
-        // Attack selection
-        if (distanceToPlayer < 10f && r.NextDouble() > 0.85) // 15% chance for teleport
+        // Choose attack pattern based on aggression and situation
+        if (canDash && distanceToPlayer > 6f && r.NextDouble() > 0.7f)
         {
-            yield return StartCoroutine(AttackA());
+            yield return StartCoroutine(DashAttack());
         }
-        else if (r.NextDouble() > 0.6) // 40% chance for spread
+        else if (aggressionLevel > 2f && r.NextDouble() > 0.6f)
         {
-            yield return StartCoroutine(AttackB());
+            yield return StartCoroutine(RapidFire());
+        }
+        else if (distanceToPlayer < 8f && r.NextDouble() > 0.8f)
+        {
+            yield return StartCoroutine(TeleportStrike());
+        }
+        else if (r.NextDouble() > 0.5f)
+        {
+            yield return StartCoroutine(SpreadShot());
         }
         else
         {
-            yield return StartCoroutine(SingleShot());
+            yield return StartCoroutine(PrecisionShot());
         }
 
         // Reload behavior
         consecutiveShots++;
-        if (consecutiveShots >= UnityEngine.Random.Range(4, 7))
+        if (consecutiveShots >= UnityEngine.Random.Range(5, 9))
         {
             yield return StartCoroutine(ReloadBehavior());
         }
 
-        yield return new WaitForSeconds(attackCooldown + (float)(r.NextDouble() * 1f));
+        float cooldown = attackCooldown / aggressionLevel;
+        yield return new WaitForSeconds(cooldown + (float)(r.NextDouble() * 0.5f));
         isAttacking = false;
     }
 
-    IEnumerator SingleShot()
+    IEnumerator PrecisionShot()
     {
+        AimAtPredictedPosition();
+        ShowAttackIndicator(Color.yellow, 0.3f);
+        yield return new WaitForSeconds(0.3f);
+
         if (HasClearShot())
         {
-            AimAtPlayer();
             FireBullet();
             consecutiveShots++;
         }
         yield return new WaitForSeconds(0.2f);
     }
 
-    IEnumerator AttackA()
-    {
-        ShowIndicator();
-        yield return new WaitForSeconds(1.5f);
-        HideIndicator();
-
-        // Teleport near player
-        Vector3 offset = new Vector3(
-            (float)(r.NextDouble() - 0.5) * 6f,
-            (float)(r.NextDouble() - 0.5) * 6f,
-            0
-        );
-
-        Vector3 teleportPos = player.position + offset;
-
-        // Check if teleport position is safe
-        Collider2D overlap = Physics2D.OverlapPoint(teleportPos);
-        if (overlap == null || !overlap.CompareTag("Wall"))
-        {
-            transform.position = teleportPos;
-            rb.velocity = Vector2.zero; // Stop momentum
-        }
-
-        AimAtPlayer();
-        FireBullet();
-        yield return new WaitForSeconds(0.5f);
-    }
-
-    IEnumerator AttackB()
+    IEnumerator SpreadShot()
     {
         int shots = UnityEngine.Random.Range(3, 6);
+        ShowAttackIndicator(Color.red, 0.5f);
+        yield return new WaitForSeconds(0.5f);
+
+        for (int i = 0; i < shots; i++)
+        {
+            AimAtPredictedPosition();
+            float spread = (i - shots / 2f) * 15f;
+            firePoint.rotation *= Quaternion.Euler(0, 0, spread);
+            FireBullet();
+            yield return new WaitForSeconds(0.08f);
+        }
+        consecutiveShots += shots;
+        firePoint.rotation = Quaternion.Euler(0, 0, 0);
+        yield return new WaitForSeconds(0.3f);
+    }
+
+    IEnumerator RapidFire()
+    {
+        int shots = UnityEngine.Random.Range(6, 10);
+        ShowAttackIndicator(Color.red, 0.8f);
+        yield return new WaitForSeconds(0.8f);
 
         for (int i = 0; i < shots; i++)
         {
             if (HasClearShot())
             {
-                AimAtPlayer();
-                float spread = (i - shots / 2f) * 12f;
-                firePoint.rotation *= Quaternion.Euler(0, 0, spread);
+                AimAtPredictedPosition();
                 FireBullet();
             }
-            yield return new WaitForSeconds(0.1f);
+            yield return new WaitForSeconds(0.12f);
         }
         consecutiveShots += shots;
+        yield return new WaitForSeconds(0.4f);
+    }
+
+    IEnumerator TeleportStrike()
+    {
+        ShowAttackIndicator(Color.magenta, 1.2f);
+        yield return new WaitForSeconds(1.2f);
+
+        // Teleport near player
+        Vector3 offset = new Vector3(
+            (float)(r.NextDouble() - 0.5) * 5f,
+            (float)(r.NextDouble() - 0.5) * 5f,
+            0
+        );
+
+        Vector3 teleportPos = player.position + offset;
+        Collider2D overlap = Physics2D.OverlapPoint(teleportPos);
+
+        if (overlap == null || !overlap.CompareTag("Wall"))
+        {
+            // Teleport effect
+            spriteRenderer.color = Color.white;
+            transform.position = teleportPos;
+            rb.velocity = Vector2.zero;
+
+            // Quick shot after teleport
+            yield return new WaitForSeconds(0.2f);
+            AimAtPredictedPosition();
+            FireBullet();
+            FireBullet(); // Double shot
+        }
+
+        yield return new WaitForSeconds(0.4f);
+    }
+
+    IEnumerator DashAttack()
+    {
+        canDash = false;
+        lastDashTime = Time.time;
+
+        ShowAttackIndicator(Color.cyan, 0.8f);
+        Vector3 dashDirection = (player.position - transform.position).normalized;
+
+        yield return new WaitForSeconds(0.8f);
+
+        // Dash toward player
+        rb.velocity = dashDirection * moveSpeed * 3f;
+        spriteRenderer.color = Color.cyan;
+
+        yield return new WaitForSeconds(0.3f);
+
+        // Fire shots during dash
+        for (int i = 0; i < 3; i++)
+        {
+            AimAtPredictedPosition();
+            FireBullet();
+            yield return new WaitForSeconds(0.1f);
+        }
+
+        consecutiveShots += 3;
+        rb.velocity = Vector2.zero;
         yield return new WaitForSeconds(0.3f);
     }
 
     IEnumerator ReloadBehavior()
     {
         isReloading = true;
-        GetComponent<SpriteRenderer>().color = Color.blue;
-        yield return new WaitForSeconds(1.5f);
-        GetComponent<SpriteRenderer>().color = Color.white;
+        ShowAttackIndicator(Color.blue, 2f);
+        yield return new WaitForSeconds(2f);
         consecutiveShots = 0;
         isReloading = false;
     }
 
-    void AimAtPlayer()
+    void ShowAttackIndicator(Color color, float duration)
     {
-        // Simple prediction
-        Vector3 predictedPosition = player.position + playerVelocity * 0.25f;
+        StartCoroutine(FlashColor(color, duration));
+    }
 
-        // Add slight inaccuracy
+    IEnumerator FlashColor(Color color, float duration)
+    {
+        spriteRenderer.color = color;
+        yield return new WaitForSeconds(duration);
+        spriteRenderer.color = originalColor;
+    }
+
+    void AimAtPredictedPosition()
+    {
+        float bulletSpeed = 10f;
+        float timeToTarget = Vector3.Distance(firePoint.position, player.position) / bulletSpeed;
+        Vector3 predictedPosition = player.position + playerVelocity * timeToTarget * 0.8f;
+
+        // Add inaccuracy that decreases with aggression
+        float inaccuracy = 1f / aggressionLevel;
         predictedPosition += new Vector3(
-            (float)(r.NextDouble() - 0.5) * 0.8f,
-            (float)(r.NextDouble() - 0.5) * 0.8f,
+            (float)(r.NextDouble() - 0.5) * inaccuracy,
+            (float)(r.NextDouble() - 0.5) * inaccuracy,
             0
         );
 
         Vector3 direction = (predictedPosition - firePoint.position).normalized;
         float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
         firePoint.rotation = Quaternion.Euler(new Vector3(0, 0, angle));
-    }
-
-    void ShowIndicator()
-    {
-        GetComponent<SpriteRenderer>().color = Color.red;
-    }
-
-    void HideIndicator()
-    {
-        GetComponent<SpriteRenderer>().color = Color.white;
     }
 
     void FireBullet()
@@ -411,8 +508,8 @@ public class BotPlayer : MonoBehaviour
             bulletScript.shotByEnemy = true;
         }
 
-        Rigidbody2D rb = bullet.GetComponent<Rigidbody2D>();
-        rb.velocity = firePoint.right * 10f;
+        Rigidbody2D bulletRb = bullet.GetComponent<Rigidbody2D>();
+        bulletRb.velocity = firePoint.right * 8f;
 
         Destroy(bullet, 3f);
     }

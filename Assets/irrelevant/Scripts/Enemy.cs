@@ -35,7 +35,11 @@ public class Enemy : NetworkBehaviour
 
     public float hitstuntimer = 0f;
 
+    public float hstmax;
+
     public GameObject hitfx;
+
+    
 
     void Awake()
     {
@@ -108,6 +112,10 @@ public class Enemy : NetworkBehaviour
         else
         {
             hitstuntimer -= Time.deltaTime;
+            if (hitstuntimer >= 0.01f && hitstuntimer <= hstmax - 0.25f)
+            {
+                GetComponent<Animator>().Play(GetComponent<PlayerMovement>().name + "_hitf");
+            }
         }
 
 
@@ -145,6 +153,8 @@ public class Enemy : NetworkBehaviour
         mover.enabled = false;
         ms.enabled = false;
         hitstuntimer = (stunDuration < hitstuntimer) ? hitstuntimer : stunDuration;
+        hstmax = hitstuntimer;
+        GetComponent<Animator>().Play(GetComponent<PlayerMovement>().name + "_hit");
     }
     #endregion
 
