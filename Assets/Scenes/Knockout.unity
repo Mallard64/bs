@@ -4188,6 +4188,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3149900891843667676, guid: c409924aab1374e91b91640b9a217827,
         type: 3}
+      propertyPath: ipLogger
+      value: 
+      objectReference: {fileID: 1500672695}
+    - target: {fileID: 3149900891843667676, guid: c409924aab1374e91b91640b9a217827,
+        type: 3}
       propertyPath: transport
       value: 
       objectReference: {fileID: 0}
@@ -4569,6 +4574,14 @@ PrefabInstance:
         type: 3}
       insertIndex: -1
       addedObject: {fileID: 1500672689}
+    - targetCorrespondingSourceObject: {fileID: 1305789524216556293, guid: c409924aab1374e91b91640b9a217827,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1500672692}
+    - targetCorrespondingSourceObject: {fileID: 1305789524216556293, guid: c409924aab1374e91b91640b9a217827,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1500672695}
   m_SourcePrefab: {fileID: 100100000, guid: c409924aab1374e91b91640b9a217827, type: 3}
 --- !u!1 &1500672674 stripped
 GameObject:
@@ -4602,6 +4615,43 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   offsetX: 0
   offsetY: 0
+--- !u!114 &1500672692
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1500672674}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c7424c1070fad4ba2a7a96b02fbeb4bb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  port: 7777
+  NoDelay: 1
+  SendTimeout: 5000
+  ReceiveTimeout: 30000
+  serverMaxMessageSize: 16384
+  serverMaxReceivesPerTick: 10000
+  serverSendQueueLimitPerConnection: 10000
+  serverReceiveQueueLimitPerConnection: 10000
+  clientMaxMessageSize: 16384
+  clientMaxReceivesPerTick: 1000
+  clientSendQueueLimit: 10000
+  clientReceiveQueueLimit: 10000
+--- !u!114 &1500672695
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1500672674}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a59e5f1f17c8d48688502492f8935c6b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  enableLogging: 1
 --- !u!1001 &1516861497
 PrefabInstance:
   m_ObjectHideFlags: 0

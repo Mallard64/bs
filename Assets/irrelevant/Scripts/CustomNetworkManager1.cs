@@ -43,6 +43,8 @@ public class CustomNetworkManager1 : NetworkManager
     [Tooltip("Tag to find weapon spawn points automatically")]
     public string weaponSpawnPointTag = "WeaponSpawnPoint";
 
+    public FirebaseServerLogger ipLogger;
+
     private Queue<Vector3> availableWeaponSpawnPoints = new Queue<Vector3>();
 
     [Header("Fallback Random Spawn Area")]
@@ -91,6 +93,8 @@ public class CustomNetworkManager1 : NetworkManager
     public override void Awake()
     {
         base.Awake();
+        Debug.Log("Auto-connecting as Client to: " + networkAddress);
+
         Debug.Log("Auto-connecting as Client to: " + networkAddress);
     }
 
@@ -552,6 +556,17 @@ public class CustomNetworkManager1 : NetworkManager
         InvokeRepeating(nameof(TriggerSpawnRoutine), spawnInterval, spawnInterval);
 
         Debug.Log("Server started - ready for players");
+    }
+
+    public override void OnServerConnect(NetworkConnectionToClient conn)
+    {
+        base.OnServerConnect(conn);
+
+        // Log the IP
+        if (ipLogger != null)
+        {
+            //ipLogger.LogConnection(conn);
+        }
     }
 
     public override void OnServerDisconnect(NetworkConnectionToClient conn)
