@@ -17,11 +17,13 @@ public class Pickup : NetworkBehaviour
         // Only the local player should request a pickup
         if (!other.CompareTag("Player")) return;
         indicator.SetActive(true);
+        other.gameObject.GetComponent<Enemy>().t.gameObject.SetActive(false);
 
         var shooter = other.GetComponent<MouseShooting>();
         if (shooter != null && shooter.isLocalPlayer && shooter.wantsPickup)
         {
             other.gameObject.GetComponent<MouseShooting>().wantsPickup = false;
+            other.gameObject.GetComponent<Enemy>().t.gameObject.SetActive(false);
             //Tell server "I touched this pickup"
             shooter.CmdRequestPickup(weaponIndex, netId);
         }
@@ -36,9 +38,11 @@ public class Pickup : NetworkBehaviour
         // Only the local player should request a pickup
         if (!other.CompareTag("Player")) return;
         var shooter = other.GetComponent<MouseShooting>();
+        other.gameObject.GetComponent<Enemy>().t.gameObject.SetActive(false);
         if (shooter != null && shooter.isLocalPlayer && shooter.wantsPickup)
         {
             other.gameObject.GetComponent<MouseShooting>().wantsPickup = false;
+            other.gameObject.GetComponent<Enemy>().t.gameObject.SetActive(false);
             //Tell server "I touched this pickup"
             shooter.CmdRequestPickup(weaponIndex, netId);
         }
@@ -51,6 +55,11 @@ public class Pickup : NetworkBehaviour
     private void OnTriggerExit2D(Collider2D other)
     {
         if (!other.CompareTag("Player")) return;
+        other.gameObject.GetComponent<Enemy>().t.gameObject.SetActive(true);
+        other.GetComponent<MouseShooting>().isWorking = true;
+        other.GetComponent<MouseShooting>().canShoot = false;
+        other.GetComponent<MouseShooting>().isShooting = false;
+        other.GetComponent<MouseShooting>().canShoot = true;
         indicator.SetActive(false);
         var shooter = other.GetComponent<MouseShooting>();
         if (shooter != null && shooter.isLocalPlayer)

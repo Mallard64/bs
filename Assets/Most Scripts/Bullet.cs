@@ -11,9 +11,18 @@ public class Bullet : NetworkBehaviour
     private Vector2 lastPosition;
     private Vector2 moveDirection;
 
+    [Header("VFX")]
+    [Tooltip("Prefab must be in NetworkManager.spawnPrefabs")]
+    public GameObject hitEffectPrefab;
+
     [SerializeField] private float outwardOffset = 5f;
     public GameObject parent;
     Rigidbody2D rb;
+
+    private void Start()
+    {
+        NetworkClient.RegisterPrefab(hitEffectPrefab);
+    }
 
     void Awake() => rb = GetComponent<Rigidbody2D>();
 
@@ -57,6 +66,24 @@ public class Bullet : NetworkBehaviour
         {
             NetworkServer.Destroy(gameObject);
             return;
+        }
+
+        if (shouldDamage)
+        {
+            // 1) Grab the contact point
+            Vector3 hitPos = col.contacts[0].point;
+
+            // 2) Spawn the hit effect on the server
+            var vfx = Instantiate(hitEffectPrefab, hitPos, Quaternion.identity);
+            NetworkServer.Spawn(vfx);
+
+            Destroy(vfx, vfx.GetComponent<HitEffect>().lifetime);
+
+            // 3) Trigger its animation via RPC (assuming your HitEffect has RpcPlayEffect())
+            vfx.GetComponent<HitEffect>().RpcPlayEffect();
+
+            // 4) Destroy the bullet
+            NetworkServer.Destroy(gameObject);
         }
 
         if (shouldDamage)

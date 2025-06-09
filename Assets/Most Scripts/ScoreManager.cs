@@ -53,6 +53,16 @@ public class ScoreManager : NetworkBehaviour
         gameActive = false;
     }
 
+    public void Reset()
+    {
+        player1Kills = 0;
+        player2Kills = 0;
+        gameTimer = 0f;
+        gameActive = false;
+    }
+
+
+
     public override void OnStartClient()
     {
         base.OnStartClient();
@@ -92,9 +102,6 @@ public class ScoreManager : NetworkBehaviour
                     conn.Disconnect();
                 }
             }
-
-            // Stop the dedicated server
-            NetworkManager.singleton.StopServer();
         }
         else
         {

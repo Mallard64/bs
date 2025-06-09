@@ -60,15 +60,18 @@ public class CustomNetworkManager1 : NetworkManager
     public GameObject spawnIndicatorPrefab; // assign in inspector
     public float indicatorDuration = 1f;    // how long the indicator shows
 
-    [Header("Auto-Restart Settings")]
-    [Tooltip("Enable auto-restart when no players are connected")]
-    public bool enableAutoRestart = true;
+    [Header("Auto-Cleanup Settings")]
+    [Tooltip("Enable auto-cleanup when no players are connected")]
+    public bool enableAutoCleanup = true;
 
-    [Tooltip("Time to wait before restarting after last player leaves")]
-    public float restartDelay = 5f;
+    [Tooltip("Time to wait before cleaning up after last player leaves")]
+    public float cleanupDelay = 5f; // Wait 30 seconds before cleanup
 
-    private bool restartPending = false;
-    private Coroutine restartCoroutine;
+    [Tooltip("Types of objects to clean up")]
+    public string[] cleanupTags = { "Weapon", "Pickup", "Projectile" };
+
+    private bool cleanupPending = false;
+    private Coroutine cleanupCoroutine;
 
     // Store original spawn points and texts for restoration
     private List<Vector3> originalSpawnPoints = new List<Vector3>();
@@ -93,9 +96,6 @@ public class CustomNetworkManager1 : NetworkManager
     public override void Awake()
     {
         base.Awake();
-        Debug.Log("Auto-connecting as Client to: " + networkAddress);
-
-        Debug.Log("Auto-connecting as Client to: " + networkAddress);
     }
 
     public async void UnityLogin()
@@ -127,10 +127,10 @@ public class CustomNetworkManager1 : NetworkManager
         StartCoroutine(DelayedInitialization());
 
         // Only start client if NOT in headless server mode
-        if (!Application.isBatchMode)
-        {
-            StartClient();
-        }
+        //if (!Application.isBatchMode)
+        //{
+        //    StartClient();
+        //}
     }
 
     IEnumerator DelayedInitialization()
@@ -375,163 +375,142 @@ public class CustomNetworkManager1 : NetworkManager
                 Instantiate(goal, new Vector3(-10, -24, 0), Quaternion.identity);
                 Instantiate(goal1, new Vector3(-10, 24, 0), Quaternion.identity);
             }
-            //Instantiate(background);
             NetworkServer.RegisterHandler<PlayerMessage>(OnCreatePlayer);
         }
         oldScene = SceneManager.GetActiveScene().name;
 
-        // Check for auto-restart condition
-        if (NetworkServer.active && enableAutoRestart)
+        // Check for auto-cleanup instead of auto-restart
+        if (NetworkServer.active && enableAutoCleanup)
         {
-            CheckForAutoRestart();
+            CheckForAutoCleanup();
         }
     }
 
-    void CheckForAutoRestart()
+
+    void CheckForAutoCleanup()
     {
         int playerCount = NetworkServer.connections.Count;
 
         if (playerCount == 0)
         {
-            // No players connected, start restart countdown
-            if (!restartPending)
+            // No players connected, start cleanup countdown
+            if (!cleanupPending)
             {
-                restartPending = true;
-                restartCoroutine = StartCoroutine(RestartServerAfterDelay());
-                Debug.Log($"No players connected. Restarting server in {restartDelay} seconds...");
+                cleanupPending = true;
+                cleanupCoroutine = StartCoroutine(CleanupAfterDelay());
+                Debug.Log($"No players connected. Cleaning up in {cleanupDelay} seconds...");
             }
         }
         else
         {
-            // Players are connected, cancel any pending restart
-            if (restartPending)
+            // Players are connected, cancel any pending cleanup
+            if (cleanupPending)
             {
-                restartPending = false;
-                if (restartCoroutine != null)
+                cleanupPending = false;
+                if (cleanupCoroutine != null)
                 {
-                    StopCoroutine(restartCoroutine);
-                    restartCoroutine = null;
+                    StopCoroutine(cleanupCoroutine);
+                    cleanupCoroutine = null;
                 }
-                Debug.Log("Players reconnected. Restart cancelled.");
+                Debug.Log("Players connected. Cleanup cancelled.");
             }
         }
     }
 
-    IEnumerator RestartServerAfterDelay()
+    IEnumerator CleanupAfterDelay()
     {
-        yield return new WaitForSeconds(restartDelay);
+        yield return new WaitForSeconds(cleanupDelay);
 
         if (NetworkServer.connections.Count == 0)
         {
-            Debug.Log("Restarting server - no players for " + restartDelay + " seconds");
-            RestartServer();
+            Debug.Log("Cleaning up game objects - no players for " + cleanupDelay + " seconds");
+            CleanupGameObjects();
         }
 
-        restartPending = false;
-        restartCoroutine = null;
+        cleanupPending = false;
+        cleanupCoroutine = null;
     }
 
-    void RestartServer()
+    void CleanupGameObjects()
     {
-        if (!NetworkServer.active) return; // Safety check
+        Debug.Log("=== CLEANING UP GAME OBJECTS ===");
 
-        Debug.Log("=== SERVER RESTARTING ===");
+        int cleanedCount = 0;
 
-        // Clean up existing networked objects
-        CleanupNetworkedObjects();
+        ScoreManager.Instance.Reset();
 
-        // Reset all game state
-        ResetGameState();
-
-        // Reset the scene if needed
-        if (Application.isBatchMode)
+        // Clean up weapons and pickups by tag
+        foreach (string tag in cleanupTags)
         {
-            // For dedicated servers, just reset state
-            Debug.Log("Server state reset complete");
-        }
-        else
-        {
-            // For host, reload the scene
-            StartCoroutine(ReloadScene());
-        }
-    }
-
-    void CleanupNetworkedObjects()
-    {
-        Debug.Log("Cleaning up networked objects...");
-
-        // Get all NetworkIdentities and destroy them (except NetworkManager)
-        var allNetworkObjects = FindObjectsOfType<NetworkIdentity>();
-        foreach (var netObj in allNetworkObjects)
-        {
-            // Don't destroy the NetworkManager itself
-            if (netObj.gameObject != gameObject && netObj.netId != 0)
+            GameObject[] objects = GameObject.FindGameObjectsWithTag(tag);
+            foreach (GameObject obj in objects)
             {
-                if (NetworkServer.active)
+                if (NetworkServer.active && obj.GetComponent<NetworkIdentity>() != null)
                 {
-                    NetworkServer.Destroy(netObj.gameObject);
+                    NetworkServer.Destroy(obj);
                 }
                 else
                 {
-                    Destroy(netObj.gameObject);
+                    Destroy(obj);
+                }
+                cleanedCount++;
+            }
+        }
+
+        // Clean up any spawned weapons specifically
+        if (weaponPickupPrefabs != null)
+        {
+            foreach (GameObject prefab in weaponPickupPrefabs)
+            {
+                if (prefab != null)
+                {
+                    string prefabName = prefab.name;
+                    GameObject[] spawnedWeapons = GameObject.FindObjectsOfType<GameObject>();
+
+                    foreach (GameObject obj in spawnedWeapons)
+                    {
+                        // Check if it's a spawned instance of our weapon prefabs
+                        if (obj.name.Contains(prefabName) && obj.name.Contains("(Clone)"))
+                        {
+                            var netId = obj.GetComponent<NetworkIdentity>();
+                            if (netId != null && netId.netId != 0)
+                            {
+                                if (NetworkServer.active)
+                                {
+                                    NetworkServer.Destroy(obj);
+                                }
+                                else
+                                {
+                                    Destroy(obj);
+                                }
+                                cleanedCount++;
+                            }
+                        }
+                    }
                 }
             }
         }
 
-        Debug.Log($"Cleaned up {allNetworkObjects.Length} networked objects");
+        // Reset spawn queues but keep server running
+        ResetSpawnQueues();
+
+        Debug.Log($"Cleaned up {cleanedCount} game objects");
+        Debug.Log("Server remains active and ready for new players");
     }
 
-    void ResetGameState()
+    void ResetSpawnQueues()
     {
-        Debug.Log("Resetting game state...");
-
-        // Reset spawn points to original state
-        spawnPoints.Clear();
-        spawnPoints.AddRange(originalSpawnPoints);
-        Debug.Log($"Reset {spawnPoints.Count} player spawn points");
-
-        // Reset weapon spawn points to original state
-        weaponSpawnPoints.Clear();
-        weaponSpawnPoints.AddRange(originalWeaponSpawnPoints);
-        Debug.Log($"Reset {weaponSpawnPoints.Count} weapon spawn points");
-
-        // Reset texts to original state
-        texts.Clear();
-        texts.AddRange(originalTexts);
-        Debug.Log($"Reset {texts.Count} text objects");
-
-        // Clear all dictionaries - THIS IS CRITICAL
-        playerSpawnPoints.Clear();
-        playerText.Clear();
-        Debug.Log("Cleared player assignments");
-
-        // Reset all queues
-        availableSpawnPoints.Clear();
-        availableText.Clear();
+        // Clear and refill weapon spawn queue
         availableWeaponSpawnPoints.Clear();
-
-        // Reinitialize queues with reset data
-        foreach (var spawnPoint in spawnPoints)
+        foreach (var spawnPoint in weaponSpawnPoints)
         {
-            availableSpawnPoints.Enqueue(spawnPoint);
+            availableWeaponSpawnPoints.Enqueue(spawnPoint);
         }
 
-        foreach (var text in texts)
-        {
-            availableText.Enqueue(text);
-        }
+        // Cancel and restart weapon spawning
+        CancelInvoke(nameof(TriggerSpawnRoutine));
 
-        foreach (var weaponSpawn in weaponSpawnPoints)
-        {
-            availableWeaponSpawnPoints.Enqueue(weaponSpawn);
-        }
-
-        // Reset other state variables
-        nextSpawnIndex = 0;
-
-        Debug.Log("Game state reset complete - ready for new players");
-        Debug.Log($"Available spawn points after reset: {spawnPoints.Count}");
-        Debug.Log($"Original spawn points: {originalSpawnPoints.Count}");
+        Debug.Log("Reset spawn queues - ready for next game session");
     }
 
     IEnumerator ReloadScene()
@@ -562,10 +541,11 @@ public class CustomNetworkManager1 : NetworkManager
     {
         base.OnServerConnect(conn);
 
-        // Log the IP
-        if (ipLogger != null)
+        // If this is the first player after a cleanup, restart weapon spawning
+        if (NetworkServer.connections.Count == 1 && !IsInvoking(nameof(TriggerSpawnRoutine)))
         {
-            //ipLogger.LogConnection(conn);
+            Debug.Log("First player connected - starting weapon spawning");
+            InvokeRepeating(nameof(TriggerSpawnRoutine), spawnInterval, spawnInterval);
         }
     }
 

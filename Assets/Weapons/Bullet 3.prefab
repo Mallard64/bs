@@ -56,6 +56,9 @@ MonoBehaviour:
   knockbackBase: 40
   knockbackScaling: 70
   shooterId: 0
+  shotByEnemy: 0
+  hitEffectPrefab: {fileID: 8069048671362576581, guid: a85cde9d74226409594c9e87d9344995,
+    type: 3}
   outwardOffset: 0.3
   parent: {fileID: 0}
 --- !u!212 &856623730395010133
@@ -97,9 +100,10 @@ SpriteRenderer:
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
   m_SortingLayerID: 238752411
-  m_SortingLayer: 1
+  m_SortingLayer: 0
   m_SortingOrder: 0
-  m_Sprite: {fileID: 7482667652216324306, guid: 75f5f34dc1b5347e0b8351032682f224, type: 3}
+  m_Sprite: {fileID: 7482667652216324306, guid: 75f5f34dc1b5347e0b8351032682f224,
+    type: 3}
   m_Color: {r: 0, g: 0.9117646, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -229,6 +233,7 @@ MonoBehaviour:
   showOverlay: 0
   overlayColor: {r: 0, g: 0, b: 0, a: 0.5}
   onlySyncOnChangeCorrectionMultiplier: 2
+  useFixedUpdate: 0
   rotationSensitivity: 0.01
   positionPrecision: 0.01
   scalePrecision: 0.01

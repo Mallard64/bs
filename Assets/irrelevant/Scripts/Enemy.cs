@@ -39,7 +39,7 @@ public class Enemy : NetworkBehaviour
 
     public GameObject hitfx;
 
-    
+
 
     void Awake()
     {
@@ -86,20 +86,7 @@ public class Enemy : NetworkBehaviour
     void Update()
     {
         // update the percent display
-        t.text = $"{health:0}%";
 
-        if (health < 40)
-        {
-            t.color = Color.green;
-        }
-        else if (health < 70)
-        {
-            t.color = Color.yellow;
-        }
-        else
-        {
-            t.color = Color.red;
-        }
 
         // flip logic
         ms.isFlipped = assignedSpawnPoint.y > 0;
@@ -114,14 +101,32 @@ public class Enemy : NetworkBehaviour
             hitstuntimer -= Time.deltaTime;
             if (hitstuntimer >= 0.01f && hitstuntimer <= hstmax - 0.25f)
             {
+                // Play animation directly - no network check needed
+                // This runs on all clients
                 GetComponent<Animator>().Play(GetComponent<PlayerMovement>().name + "_hitf");
             }
         }
 
 
+        if (SceneManager.GetActiveScene().name != "Knockout") return;
         if (transform.position.y >= 10 || transform.position.y <= -18 || transform.position.x >= 19 || transform.position.x <= -19)
         {
             CmdDieAndRespawn();
+        }
+
+        t.text = $"{health:0}%";
+
+        if (health < 40)
+        {
+            t.color = Color.green;
+        }
+        else if (health < 70)
+        {
+            t.color = Color.yellow;
+        }
+        else
+        {
+            t.color = Color.red;
         }
     }
 
@@ -136,9 +141,9 @@ public class Enemy : NetworkBehaviour
     private IEnumerator HitstunCoroutine(float duration)
     {
         //hitfx.SetActive(true);
-        
+
         yield return new WaitForSeconds(duration);
-        
+
         //hitfx.SetActive(false);
     }
 
@@ -154,6 +159,8 @@ public class Enemy : NetworkBehaviour
         ms.enabled = false;
         hitstuntimer = (stunDuration < hitstuntimer) ? hitstuntimer : stunDuration;
         hstmax = hitstuntimer;
+
+        // Play animation directly - this is already targeted to the right client
         GetComponent<Animator>().Play(GetComponent<PlayerMovement>().name + "_hit");
     }
     #endregion
@@ -184,34 +191,50 @@ public class Enemy : NetworkBehaviour
         int other = (playerNum == 1 ? 2 : 1);
         ScoreManager.Instance.AddKill(other);
 
-        // 2) disable & schedule respawn
-        RpcDisablePlayer();
-        Invoke(nameof(ServerRespawn), respawnTime);
-    }
-
-    [Server]
-    private void ServerRespawn()
-    {
+        // 2) instantly move back to spawn and reset
         health = 0f;
         transform.position = assignedSpawnPoint;
-        RpcEnablePlayer();
+        GetComponent<Rigidbody2D>().velocity = Vector2.zero;
+
+        // 3) temporarily disable then re-enable for visual feedback
+        RpcInstantRespawn();
     }
 
     [ClientRpc]
-    private void RpcDisablePlayer()
+    private void RpcInstantRespawn()
     {
-        spriteRenderer.enabled = false;
-        mover.enabled = false;
-    }
-
-    [ClientRpc]
-    private void RpcEnablePlayer()
-    {
+        // Move to spawn instantly on all clients
         transform.position = assignedSpawnPoint;
+        GetComponent<Rigidbody2D>().velocity = Vector2.zero;
+
+        // Brief disable/enable for visual feedback
+        StartCoroutine(RespawnFlicker());
+    }
+
+    private IEnumerator RespawnFlicker()
+    {
+        // Quick flicker effect to show respawn
+        spriteRenderer.enabled = false;
+        yield return new WaitForSeconds(0.1f);
         spriteRenderer.enabled = true;
-        mover.enabled = true;
+        yield return new WaitForSeconds(0.1f);
+        spriteRenderer.enabled = false;
+        yield return new WaitForSeconds(0.1f);
+        spriteRenderer.enabled = true;
     }
     #endregion
+
+    [Command]
+    void CmdPlayAnimation(string animationName)
+    {
+        RpcPlayAnimation(animationName);
+    }
+
+    [ClientRpc]
+    void RpcPlayAnimation(string animationName)
+    {
+        GetComponent<Animator>().Play(animationName);
+    }
 
     #region Win/Lose/Tie
     public void Win() => SceneManager.LoadScene("Win");

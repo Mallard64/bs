@@ -176,6 +176,8 @@ MonoBehaviour:
   bulletLifetime: 1
   id: 3
   maxAmmo: 6
+  maxSwaps: 0
+  isSpecial: 0
   audioSource: {fileID: 1425803978968836896}
   shootSound: {fileID: 0}
   parent: {fileID: 0}
@@ -198,17 +200,18 @@ MonoBehaviour:
   syncPosition: 1
   syncRotation: 1
   syncScale: 0
-  onlySyncOnChange: 1
+  onlySyncOnChange: 0
   compressRotation: 1
   interpolatePosition: 1
   interpolateRotation: 1
   interpolateScale: 1
-  coordinateSpace: 0
+  coordinateSpace: 1
   timelineOffset: 1
   showGizmos: 0
   showOverlay: 0
   overlayColor: {r: 0, g: 0, b: 0, a: 0.5}
   onlySyncOnChangeCorrectionMultiplier: 2
+  useFixedUpdate: 0
   rotationSensitivity: 0.01
   positionPrecision: 0.01
   scalePrecision: 0.01
@@ -386,12 +389,12 @@ PrefabInstance:
     - target: {fileID: 7271445528596529815, guid: 3e477cf552b504b1fac8d3f298ae0108,
         type: 3}
       propertyPath: m_SortingLayer
-      value: 3
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 7271445528596529815, guid: 3e477cf552b504b1fac8d3f298ae0108,
         type: 3}
       propertyPath: m_SortingLayerID
-      value: -105541197
+      value: -44025399
       objectReference: {fileID: 0}
     - target: {fileID: 7319472345755143276, guid: 3e477cf552b504b1fac8d3f298ae0108,
         type: 3}

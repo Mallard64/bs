@@ -111,6 +111,7 @@ public class Weapon : NetworkBehaviour
     {
         if (parent != null)
         {
+
             parent.GetComponent<MouseShooting>().swapModeNumMax = maxSwaps;
             parent.GetComponent<MouseShooting>().hasSpecial = isSpecial;
             parent.GetComponent<MouseShooting>().bulletSpeed = bulletSpeed;
@@ -119,6 +120,7 @@ public class Weapon : NetworkBehaviour
 
             // Update shot cooldown based on weapon mode for sword weapons
             var mouseShooting = parent.GetComponent<MouseShooting>();
+            mouseShooting.shotCooldownTime = end + startup + shot;
             if (id == 2) // Sword weapon
             {
                 switch (mouseShooting.swapModeNum)
@@ -191,7 +193,7 @@ public class Weapon : NetworkBehaviour
             }
 
             // Handle auto-aiming display
-            if (mouseShooting.isAuto)
+            if (mouseShooting.isAuto && parent.GetComponent<NetworkIdentity>().isLocalPlayer)
             {
                 Aim(mouseShooting.d);
             }
@@ -209,17 +211,35 @@ public class Weapon : NetworkBehaviour
         }
     }
 
+
+
     // Called by MouseShooting to aim the weapon
     public void Aim(Vector3 dir)
     {
         var mouseShooting = parent.GetComponent<MouseShooting>();
         if (mouseShooting != null && mouseShooting.isShooting) return;
 
-        aimingSprite.SetActive(true);
+        // Check if the parent is owned by the local client
+        if (parent != null)
+        {
+            var parentIdentity = parent.GetComponent<NetworkIdentity>();
+
+            // For player objects: use isLocalPlayer
+            // For non-player objects: use isOwned
+            bool showAimSprite = parentIdentity.isLocalPlayer ||
+                               (isClient && parentIdentity.isOwned);
+
+            if (showAimSprite)
+            {
+                aimingSprite.SetActive(true);
+                aimingSprite.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg);
+            }
+        }
+
+        // Rotation happens for everyone
         float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
         transform.rotation = Quaternion.Euler(0, 0, angle);
         GetComponent<SpriteRenderer>().flipY = ((angle + 360) % 360) > 180;
-        aimingSprite.transform.rotation = Quaternion.Euler(0, 0, angle);
     }
 
     // Called by MouseShooting to stop aiming

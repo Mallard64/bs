@@ -57,6 +57,8 @@ MonoBehaviour:
   knockbackScaling: 40
   shooterId: 0
   shotByEnemy: 0
+  hitEffectPrefab: {fileID: 8069048671362576581, guid: a85cde9d74226409594c9e87d9344995,
+    type: 3}
   outwardOffset: 0.3
   parent: {fileID: 0}
 --- !u!212 &856623730395010133
@@ -230,6 +232,7 @@ MonoBehaviour:
   showOverlay: 0
   overlayColor: {r: 0, g: 0, b: 0, a: 0.5}
   onlySyncOnChangeCorrectionMultiplier: 2
+  useFixedUpdate: 0
   rotationSensitivity: 0.01
   positionPrecision: 0.01
   scalePrecision: 0.01

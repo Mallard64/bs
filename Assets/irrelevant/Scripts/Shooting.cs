@@ -11,6 +11,8 @@ using System;
 /// </summary>
 public class MouseShooting : NetworkBehaviour
 {
+    public bool isWorking = true;
+
     public bool isKeyboard = false;
 
     public Button swapMode;
@@ -268,6 +270,7 @@ public class MouseShooting : NetworkBehaviour
 
     private void HandleShootingInput()
     {
+        if (!isWorking) return;
         if (!canShoot) return;
         if (isShooting) return;
         if (!isLocalPlayer) return;
