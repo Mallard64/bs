@@ -160,7 +160,7 @@ public class Enemy : NetworkBehaviour
         hitstuntimer = (stunDuration < hitstuntimer) ? hitstuntimer : stunDuration;
         hstmax = hitstuntimer;
 
-        // Play animation directly - this is already targeted to the right client
+        // Play hit animation immediately on the targeted client
         GetComponent<Animator>().Play(GetComponent<PlayerMovement>().name + "_hit");
     }
     #endregion
@@ -191,36 +191,36 @@ public class Enemy : NetworkBehaviour
         int other = (playerNum == 1 ? 2 : 1);
         ScoreManager.Instance.AddKill(other);
 
-        // 2) instantly move back to spawn and reset
+        // 2) disable & schedule respawn (unkillable during this time)
+        RpcDisablePlayer();
+        Invoke(nameof(ServerRespawn), respawnTime);
+    }
+
+    [Server]
+    private void ServerRespawn()
+    {
         health = 0f;
         transform.position = assignedSpawnPoint;
-        GetComponent<Rigidbody2D>().velocity = Vector2.zero;
-
-        // 3) temporarily disable then re-enable for visual feedback
-        RpcInstantRespawn();
+        RpcEnablePlayer();
     }
 
     [ClientRpc]
-    private void RpcInstantRespawn()
+    private void RpcDisablePlayer()
     {
-        // Move to spawn instantly on all clients
-        transform.position = assignedSpawnPoint;
-        GetComponent<Rigidbody2D>().velocity = Vector2.zero;
-
-        // Brief disable/enable for visual feedback
-        StartCoroutine(RespawnFlicker());
+        spriteRenderer.enabled = false;
+        mover.enabled = false;
+        ms.enabled = false;
+        GetComponent<Collider2D>().enabled = false; // Make unkillable
     }
 
-    private IEnumerator RespawnFlicker()
+    [ClientRpc]
+    private void RpcEnablePlayer()
     {
-        // Quick flicker effect to show respawn
-        spriteRenderer.enabled = false;
-        yield return new WaitForSeconds(0.1f);
+        transform.position = assignedSpawnPoint;
         spriteRenderer.enabled = true;
-        yield return new WaitForSeconds(0.1f);
-        spriteRenderer.enabled = false;
-        yield return new WaitForSeconds(0.1f);
-        spriteRenderer.enabled = true;
+        mover.enabled = true;
+        ms.enabled = true;
+        GetComponent<Collider2D>().enabled = true; // Re-enable collision
     }
     #endregion
 
