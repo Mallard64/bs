@@ -3521,12 +3521,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 39ddabf5ccd8e44369efced557dc55cb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  path: data_sheets/thatguy
-  user: {fileID: 2090380819}
-  pw: {fileID: 1916920095}
-  id: {fileID: 320360208}
-  score: {fileID: 890182131}
-  submitButton: {fileID: 1681236797}
 --- !u!114 &1483086659
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3539,11 +3533,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 000b592085a3b48ffb8627da4e4804a1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  path: data_sheets/thatguy
-  username: {fileID: 372029575}
-  password: {fileID: 1525176728}
-  id: {fileID: 1869268554}
-  score: {fileID: 101075716}
 --- !u!114 &1483086660
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3556,14 +3545,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 57f166a02371246479ec0d6729235b31, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  email: 
-  password: 
-  t: {fileID: 592824732}
-  m: {fileID: 1301308864}
-  tm: {fileID: 1166939965}
-  mt: {fileID: 2079351015}
-  b: {fileID: 0}
-  u: {fileID: 0}
 --- !u!114 &1483086661
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3573,10 +3554,42 @@ MonoBehaviour:
   m_GameObject: {fileID: 1483086653}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a59e5f1f17c8d48688502492f8935c6b, type: 3}
+  m_Script: {fileID: 11500000, guid: 4a689e4086ba148cdb29d2f04c280f7a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  enableLogging: 1
+  loginPanel: {fileID: 0}
+  registerPanel: {fileID: 0}
+  profilePanel: {fileID: 0}
+  guestPanel: {fileID: 0}
+  linkAccountPanel: {fileID: 0}
+  loginEmail: {fileID: 2090380819}
+  loginPassword: {fileID: 1916920095}
+  loginButton: {fileID: 0}
+  switchToRegisterButton: {fileID: 0}
+  guestLoginButton: {fileID: 0}
+  registerEmail: {fileID: 320360208}
+  registerPassword: {fileID: 890182131}
+  registerConfirmPassword: {fileID: 1166939965}
+  registerUsername: {fileID: 2079351015}
+  registerButton: {fileID: 0}
+  switchToLoginButton: {fileID: 0}
+  profileEmailText: {fileID: 372029575}
+  profileUsernameText: {fileID: 1525176728}
+  accountTypeText: {fileID: 1869268554}
+  logoutButton: {fileID: 0}
+  linkAccountButton: {fileID: 0}
+  continueGameButton: {fileID: 0}
+  guestStatusText: {fileID: 0}
+  createAccountFromGuestButton: {fileID: 0}
+  continueAsGuestButton: {fileID: 0}
+  linkEmail: {fileID: 0}
+  linkPassword: {fileID: 0}
+  linkSubmitButton: {fileID: 0}
+  linkCancelButton: {fileID: 0}
+  statusText: {fileID: 0}
+  loadingIndicator: {fileID: 0}
+  connectionStatus: {fileID: 0}
+  connectionText: {fileID: 0}
 --- !u!1 &1514370940
 GameObject:
   m_ObjectHideFlags: 0

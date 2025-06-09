@@ -1,129 +1,65 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using Firebase;
-using Firebase.Auth;
-using Firebase.Database;
-using System.Threading.Tasks;
+using UnityEngine.Networking;
+using Newtonsoft.Json;
+using System.Text;
 using TMPro;
 using UnityEngine.UI;
-using Newtonsoft.Json;
 
-// Make sure all data structures are properly defined
 [System.Serializable]
-public class RunData
+public class FirebaseAuthResponse
 {
-    public int runNumber;
-    public float completionTime;
-    public int score;
-    public int weaponsFound;
-    public string timestamp; // Changed to string for Firebase compatibility
-
-    public RunData() { }
-
-    public RunData(int run, float time, int playerScore, int weapons)
-    {
-        runNumber = run;
-        completionTime = time;
-        score = playerScore;
-        weaponsFound = weapons;
-        timestamp = DateTime.Now.ToBinary().ToString();
-    }
-
-    public DateTime GetDateTime()
-    {
-        if (long.TryParse(timestamp, out long binary))
-        {
-            return DateTime.FromBinary(binary);
-        }
-        return DateTime.Now;
-    }
+    public string localId;
+    public string email;
+    public string displayName;
+    public string idToken;
+    public string refreshToken;
+    public string expiresIn;
+    public bool registered;
 }
 
 [System.Serializable]
-public class PlayerStats
+public class FirebaseAuthRequest
 {
-    public int totalScore = 0;
-    public int totalWeaponsFound = 0;
-    public float totalPlayTime = 0f;
-    public int bestRunScore = 0;
-    public float fastestRunTime = float.MaxValue;
-    public int totalGambles = 0;
-    public int totalUnlocks = 0;
+    public string email;
+    public string password;
+    public bool returnSecureToken = true;
 }
 
 [System.Serializable]
-public class PlayerData
+public class FirestoreField
 {
-    public int currentRun = 0;
-    public int currentBattery = 1000;
-    public List<string> unlockedWeapons = new List<string>();
-    public List<string> unlockedSkins = new List<string>();
-    public List<RunData> completedRuns = new List<RunData>();
-    public string lastPlayTime = DateTime.Now.ToBinary().ToString();
-    public int consecutiveFailures = 0;
-    public PlayerStats stats = new PlayerStats();
-
-    public PlayerData()
-    {
-        // Initialize with default unlocks
-        if (unlockedWeapons.Count == 0)
-        {
-            unlockedWeapons.Add("weapon_basic_rifle");
-        }
-        if (unlockedSkins.Count == 0)
-        {
-            unlockedSkins.Add("skin_default");
-        }
-    }
-
-    public DateTime GetLastPlayTime()
-    {
-        if (long.TryParse(lastPlayTime, out long binary))
-        {
-            return DateTime.FromBinary(binary);
-        }
-        return DateTime.Now;
-    }
-
-    public void UpdateLastPlayTime()
-    {
-        lastPlayTime = DateTime.Now.ToBinary().ToString();
-    }
+    public object stringValue;
+    public object integerValue;
+    public object doubleValue;
+    public object booleanValue;
+    public object timestampValue;
+    public object arrayValue;
+    public object mapValue;
 }
 
 [System.Serializable]
-public class GamblingReward
+public class FirestoreDocument2
 {
-    public enum RewardType { Weapon, Currency, Upgrade, Skin }
-
-    public RewardType type;
-    public string itemId;
-    public int amount;
-    public float chance;
-    public int requiredRuns = 0;
-
-    public GamblingReward() { }
-
-    public GamblingReward(RewardType rewardType, string id, int amt, float chancePercent, int minRuns = 0)
-    {
-        type = rewardType;
-        itemId = id;
-        amount = amt;
-        chance = chancePercent;
-        requiredRuns = minRuns;
-    }
+    public string name;
+    public Dictionary<string, FirestoreField> fields;
+    public string createTime;
+    public string updateTime;
 }
 
-// Complete Firebase Authentication Manager
-public class FirebaseAuthManager : MonoBehaviour
+public class FirebaseRestManager : MonoBehaviour
 {
+    [Header("Firebase Configuration")]
+    public string firebaseProjectId = "smashbrawl-4fca6";
+    public string firebaseApiKey = "AIzaSyCXU2WmL5CfB5JBTR3_FOWJPFvYMAl-kkU";
+
     [Header("UI References")]
     public GameObject loginPanel;
     public GameObject registerPanel;
     public GameObject profilePanel;
     public GameObject guestPanel;
-    public GameObject linkAccountPanel;
 
     [Header("Login UI")]
     public TMP_InputField loginEmail;
@@ -145,291 +81,230 @@ public class FirebaseAuthManager : MonoBehaviour
     public TextMeshProUGUI profileUsernameText;
     public TextMeshProUGUI accountTypeText;
     public Button logoutButton;
-    public Button linkAccountButton;
     public Button continueGameButton;
-
-    [Header("Guest UI")]
-    public TextMeshProUGUI guestStatusText;
-    public Button createAccountFromGuestButton;
-    public Button continueAsGuestButton;
-
-    [Header("Link Account UI")]
-    public TMP_InputField linkEmail;
-    public TMP_InputField linkPassword;
-    public Button linkSubmitButton;
-    public Button linkCancelButton;
 
     [Header("Status UI")]
     public TextMeshProUGUI statusText;
     public GameObject loadingIndicator;
-    public GameObject connectionStatus;
-    public TextMeshProUGUI connectionText;
 
-    private FirebaseAuth auth;
-    private DatabaseReference databaseRef;
-    private FirebaseUser currentUser;
-    private bool firebaseInitialized = false;
+    private string currentUserId = "";
+    private string currentIdToken = "";
+    private string currentRefreshToken = "";
+    private bool isGuest = false;
+    private bool isLoggedIn = false;
 
-    public event System.Action<FirebaseUser> OnUserSignedIn;
+    // Firestore REST API URLs
+    private string authSignInUrl => $"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={firebaseApiKey}";
+    private string authSignUpUrl => $"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={firebaseApiKey}";
+    private string authRefreshUrl => $"https://securetoken.googleapis.com/v1/token?key={firebaseApiKey}";
+    private string firestoreBaseUrl => $"https://firestore.googleapis.com/v1/projects/{firebaseProjectId}/databases/(default)/documents";
+
+    public event System.Action<string> OnUserSignedIn;
     public event System.Action OnUserSignedOut;
     public event System.Action<bool> OnAuthStateChanged;
-    public event System.Action<bool> OnFirebaseInitialized;
 
     void Start()
     {
-        InitializeFirebase();
         SetupUI();
-    }
-
-    async void InitializeFirebase()
-    {
-        try
-        {
-            SetStatus("Initializing Firebase...");
-            var dependencyStatus = await FirebaseApp.CheckAndFixDependenciesAsync();
-
-            if (dependencyStatus == DependencyStatus.Available)
-            {
-                auth = FirebaseAuth.DefaultInstance;
-                databaseRef = FirebaseDatabase.DefaultInstance.RootReference;
-                firebaseInitialized = true;
-
-                // Listen for auth state changes
-                auth.StateChanged += AuthStateChanged;
-
-                SetStatus("Firebase initialized successfully");
-                UpdateConnectionStatus(true);
-                OnFirebaseInitialized?.Invoke(true);
-
-                // Check if user was previously signed in
-                CheckPreviousLogin();
-
-                Debug.Log("Firebase Auth initialized successfully");
-            }
-            else
-            {
-                Debug.LogError($"Firebase dependency error: {dependencyStatus}");
-                HandleFirebaseError($"Firebase setup failed: {dependencyStatus}");
-            }
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"Firebase initialization failed: {e.Message}");
-            HandleFirebaseError($"Firebase initialization failed: {e.Message}");
-        }
-    }
-
-    void HandleFirebaseError(string error)
-    {
-        firebaseInitialized = false;
-        SetStatus($"Offline mode: {error}");
-        UpdateConnectionStatus(false);
-        OnFirebaseInitialized?.Invoke(false);
-        ShowOfflineMode();
+        CheckPreviousLogin();
     }
 
     void SetupUI()
     {
-        // Login panel
         if (loginButton != null)
-            loginButton.onClick.AddListener(() => LoginWithEmail(loginEmail.text, loginPassword.text));
+            loginButton.onClick.AddListener(() => StartCoroutine(LoginWithEmail(loginEmail.text, loginPassword.text)));
         if (switchToRegisterButton != null)
             switchToRegisterButton.onClick.AddListener(() => ShowPanel("register"));
         if (guestLoginButton != null)
             guestLoginButton.onClick.AddListener(LoginAsGuest);
 
-        // Register panel
         if (registerButton != null)
-            registerButton.onClick.AddListener(() => RegisterWithEmail(
-                registerEmail.text, registerPassword.text, registerConfirmPassword.text, registerUsername.text));
+            registerButton.onClick.AddListener(() => StartCoroutine(RegisterWithEmail(
+                registerEmail.text, registerPassword.text, registerConfirmPassword.text, registerUsername.text)));
         if (switchToLoginButton != null)
             switchToLoginButton.onClick.AddListener(() => ShowPanel("login"));
 
-        // Profile panel
         if (logoutButton != null)
             logoutButton.onClick.AddListener(Logout);
-        if (linkAccountButton != null)
-            linkAccountButton.onClick.AddListener(() => ShowPanel("link"));
         if (continueGameButton != null)
             continueGameButton.onClick.AddListener(ContinueGame);
 
-        // Guest panel
-        if (createAccountFromGuestButton != null)
-            createAccountFromGuestButton.onClick.AddListener(() => ShowPanel("register"));
-        if (continueAsGuestButton != null)
-            continueAsGuestButton.onClick.AddListener(ContinueGame);
-
-        // Link account panel
-        if (linkSubmitButton != null)
-            linkSubmitButton.onClick.AddListener(() => LinkGuestAccount(linkEmail.text, linkPassword.text));
-        if (linkCancelButton != null)
-            linkCancelButton.onClick.AddListener(() => ShowPanel("profile"));
-
-        // Start with login panel
         ShowPanel("login");
     }
 
     void CheckPreviousLogin()
     {
         string savedUserId = PlayerPrefs.GetString("UserId", "");
+        string savedToken = PlayerPrefs.GetString("IdToken", "");
+        string savedRefreshToken = PlayerPrefs.GetString("RefreshToken", "");
         bool wasGuest = PlayerPrefs.GetInt("WasGuest", 0) == 1;
 
         if (!string.IsNullOrEmpty(savedUserId))
         {
+            currentUserId = savedUserId;
+            currentIdToken = savedToken;
+            currentRefreshToken = savedRefreshToken;
+            isGuest = wasGuest;
+
             if (wasGuest)
             {
-                LoginAsGuest();
+                HandleSuccessfulLogin(savedUserId, "", "Guest", true);
             }
-            else if (auth?.CurrentUser != null)
+            else if (!string.IsNullOrEmpty(savedRefreshToken))
             {
-                HandleSuccessfulLogin(auth.CurrentUser);
+                StartCoroutine(RefreshToken());
             }
         }
     }
 
     #region Authentication Methods
 
-    async void LoginWithEmail(string email, string password)
+    IEnumerator LoginWithEmail(string email, string password)
     {
-        if (!ValidateEmailLogin(email, password)) return;
+        if (!ValidateEmailLogin(email, password)) yield break;
 
         ShowLoading(true);
         SetStatus("Signing in...");
 
-        try
+        var request = new FirebaseAuthRequest
         {
-            var result = await auth.SignInWithEmailAndPasswordAsync(email, password);
-            HandleSuccessfulLogin(result.User);
-        }
-        catch (System.Exception e)
+            email = email,
+            password = password
+        };
+
+        string jsonData = JsonConvert.SerializeObject(request);
+
+        using (UnityWebRequest www = new UnityWebRequest(authSignInUrl, "POST"))
         {
-            HandleAuthError(e);
-        }
-        finally
-        {
+            byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
+            www.uploadHandler = new UploadHandlerRaw(bodyRaw);
+            www.downloadHandler = new DownloadHandlerBuffer();
+            www.SetRequestHeader("Content-Type", "application/json");
+
+            yield return www.SendWebRequest();
+
             ShowLoading(false);
+
+            if (www.result == UnityWebRequest.Result.Success)
+            {
+                var response = JsonConvert.DeserializeObject<FirebaseAuthResponse>(www.downloadHandler.text);
+                SaveAuthData(response.localId, response.idToken, response.refreshToken, false);
+                HandleSuccessfulLogin(response.localId, response.email, response.displayName ?? response.email.Split('@')[0], false);
+            }
+            else
+            {
+                HandleAuthError(www.downloadHandler.text);
+            }
         }
     }
 
-    async void RegisterWithEmail(string email, string password, string confirmPassword, string username)
+    IEnumerator RegisterWithEmail(string email, string password, string confirmPassword, string username)
     {
-        if (!ValidateRegistration(email, password, confirmPassword, username)) return;
+        if (!ValidateRegistration(email, password, confirmPassword, username)) yield break;
 
         ShowLoading(true);
         SetStatus("Creating account...");
 
-        try
+        var request = new FirebaseAuthRequest
         {
-            var result = await auth.CreateUserWithEmailAndPasswordAsync(email, password);
+            email = email,
+            password = password
+        };
 
-            // Update user profile with username
-            var profile = new UserProfile { DisplayName = username };
-            await result.User.UpdateUserProfileAsync(profile);
+        string jsonData = JsonConvert.SerializeObject(request);
 
-            // Save username to database
-            await SaveUserProfile(result.User.UserId, username, email);
-
-            HandleSuccessfulLogin(result.User);
-        }
-        catch (System.Exception e)
+        using (UnityWebRequest www = new UnityWebRequest(authSignUpUrl, "POST"))
         {
-            HandleAuthError(e);
-        }
-        finally
-        {
+            byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
+            www.uploadHandler = new UploadHandlerRaw(bodyRaw);
+            www.downloadHandler = new DownloadHandlerBuffer();
+            www.SetRequestHeader("Content-Type", "application/json");
+
+            yield return www.SendWebRequest();
+
             ShowLoading(false);
+
+            if (www.result == UnityWebRequest.Result.Success)
+            {
+                var response = JsonConvert.DeserializeObject<FirebaseAuthResponse>(www.downloadHandler.text);
+                SaveAuthData(response.localId, response.idToken, response.refreshToken, false);
+
+                // Save user profile to Firestore
+                StartCoroutine(SaveUserProfile(response.localId, username, email));
+
+                HandleSuccessfulLogin(response.localId, response.email, username, false);
+            }
+            else
+            {
+                HandleAuthError(www.downloadHandler.text);
+            }
         }
     }
 
-    async void LoginAsGuest()
+    IEnumerator RefreshToken()
     {
-        if (!firebaseInitialized)
+        if (string.IsNullOrEmpty(currentRefreshToken)) yield break;
+
+        var requestData = new Dictionary<string, object>
         {
-            // Pure offline mode
-            string guestId = PlayerPrefs.GetString("GuestUserId", System.Guid.NewGuid().ToString());
-            PlayerPrefs.SetString("GuestUserId", guestId);
-            PlayerPrefs.SetString("UserId", guestId);
-            PlayerPrefs.SetInt("WasGuest", 1);
-            PlayerPrefs.Save();
+            ["grant_type"] = "refresh_token",
+            ["refresh_token"] = currentRefreshToken
+        };
 
-            HandleOfflineLogin(guestId);
-            return;
-        }
+        string jsonData = JsonConvert.SerializeObject(requestData);
 
-        ShowLoading(true);
-        SetStatus("Signing in as guest...");
-
-        try
+        using (UnityWebRequest www = new UnityWebRequest(authRefreshUrl, "POST"))
         {
-            var result = await auth.SignInAnonymouslyAsync();
+            byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
+            www.uploadHandler = new UploadHandlerRaw(bodyRaw);
+            www.downloadHandler = new DownloadHandlerBuffer();
+            www.SetRequestHeader("Content-Type", "application/json");
 
-            // Save guest status
-            PlayerPrefs.SetString("UserId", result.User.UserId);
-            PlayerPrefs.SetInt("WasGuest", 1);
-            PlayerPrefs.Save();
+            yield return www.SendWebRequest();
 
-            HandleSuccessfulLogin(result.User);
-        }
-        catch (System.Exception e)
-        {
-            // Fallback to offline guest mode
-            string guestId = PlayerPrefs.GetString("GuestUserId", System.Guid.NewGuid().ToString());
-            PlayerPrefs.SetString("GuestUserId", guestId);
-            PlayerPrefs.SetString("UserId", guestId);
-            PlayerPrefs.SetInt("WasGuest", 1);
-            PlayerPrefs.Save();
+            if (www.result == UnityWebRequest.Result.Success)
+            {
+                var response = JsonConvert.DeserializeObject<Dictionary<string, object>>(www.downloadHandler.text);
+                currentIdToken = response["id_token"].ToString();
+                currentRefreshToken = response["refresh_token"].ToString();
 
-            HandleOfflineLogin(guestId);
-        }
-        finally
-        {
-            ShowLoading(false);
+                PlayerPrefs.SetString("IdToken", currentIdToken);
+                PlayerPrefs.SetString("RefreshToken", currentRefreshToken);
+                PlayerPrefs.Save();
+
+                HandleSuccessfulLogin(currentUserId, "", "", isGuest);
+            }
+            else
+            {
+                Logout();
+            }
         }
     }
 
-    async void LinkGuestAccount(string email, string password)
+    void LoginAsGuest()
     {
-        if (!firebaseInitialized || currentUser == null || !currentUser.IsAnonymous) return;
+        string guestId = PlayerPrefs.GetString("GuestUserId", System.Guid.NewGuid().ToString());
+        PlayerPrefs.SetString("GuestUserId", guestId);
 
-        ShowLoading(true);
-        SetStatus("Linking account...");
-
-        try
-        {
-            var credential = EmailAuthProvider.GetCredential(email, password);
-            var result = await currentUser.LinkWithCredentialAsync(credential);
-
-            // Update guest status
-            PlayerPrefs.SetInt("WasGuest", 0);
-            PlayerPrefs.Save();
-
-            HandleSuccessfulLogin(result.User);
-            SetStatus("Account linked successfully!");
-        }
-        catch (System.Exception e)
-        {
-            HandleAuthError(e);
-        }
-        finally
-        {
-            ShowLoading(false);
-        }
+        SaveAuthData(guestId, "", "", true);
+        HandleSuccessfulLogin(guestId, "", "Guest", true);
     }
 
-    async void Logout()
+    void Logout()
     {
-        if (firebaseInitialized && auth.CurrentUser != null)
-        {
-            auth.SignOut();
-        }
-
-        // Clear local data
         PlayerPrefs.DeleteKey("UserId");
+        PlayerPrefs.DeleteKey("IdToken");
+        PlayerPrefs.DeleteKey("RefreshToken");
         PlayerPrefs.DeleteKey("WasGuest");
         PlayerPrefs.DeleteKey("GuestUserId");
         PlayerPrefs.Save();
 
-        currentUser = null;
+        currentUserId = "";
+        currentIdToken = "";
+        currentRefreshToken = "";
+        isGuest = false;
+        isLoggedIn = false;
+
         OnUserSignedOut?.Invoke();
         ShowPanel("login");
         SetStatus("Signed out");
@@ -437,14 +312,198 @@ public class FirebaseAuthManager : MonoBehaviour
 
     void ContinueGame()
     {
-        // This should be handled by your main game manager
         Debug.Log("Continuing to game...");
-        gameObject.SetActive(false); // Hide auth UI
+        gameObject.SetActive(false);
     }
 
     #endregion
 
-    #region Validation
+    #region Firestore Operations
+
+    public IEnumerator SaveUserData(string userId, object data)
+    {
+        string url = $"{firestoreBaseUrl}/players/{userId}";
+
+        // Convert object to Firestore format
+        var firestoreDoc = ConvertToFirestoreDocument(data);
+        string jsonData = JsonConvert.SerializeObject(firestoreDoc);
+
+        using (UnityWebRequest www = new UnityWebRequest(url, "PATCH"))
+        {
+            byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
+            www.uploadHandler = new UploadHandlerRaw(bodyRaw);
+            www.downloadHandler = new DownloadHandlerBuffer();
+            www.SetRequestHeader("Content-Type", "application/json");
+
+            if (!isGuest && !string.IsNullOrEmpty(currentIdToken))
+            {
+                www.SetRequestHeader("Authorization", $"Bearer {currentIdToken}");
+            }
+
+            yield return www.SendWebRequest();
+
+            if (www.result == UnityWebRequest.Result.Success)
+            {
+                Debug.Log("Data saved to Firestore successfully");
+            }
+            else
+            {
+                Debug.LogError($"Failed to save to Firestore: {www.error}");
+                Debug.LogError($"Response: {www.downloadHandler.text}");
+            }
+        }
+    }
+
+    public IEnumerator LoadUserData(string userId, System.Action<string> onComplete)
+    {
+        string url = $"{firestoreBaseUrl}/players/{userId}";
+
+        using (UnityWebRequest www = UnityWebRequest.Get(url))
+        {
+            if (!isGuest && !string.IsNullOrEmpty(currentIdToken))
+            {
+                www.SetRequestHeader("Authorization", $"Bearer {currentIdToken}");
+            }
+
+            yield return www.SendWebRequest();
+
+            if (www.result == UnityWebRequest.Result.Success)
+            {
+                var firestoreDoc = JsonConvert.DeserializeObject<FirestoreDocument2>(www.downloadHandler.text);
+                var convertedData = ConvertFromFirestoreDocument(firestoreDoc);
+                onComplete?.Invoke(JsonConvert.SerializeObject(convertedData));
+            }
+            else if (www.responseCode == 404)
+            {
+                // Document doesn't exist yet - this is normal for new users
+                onComplete?.Invoke(null);
+            }
+            else
+            {
+                Debug.LogError($"Failed to load from Firestore: {www.error}");
+                onComplete?.Invoke(null);
+            }
+        }
+    }
+
+    IEnumerator SaveUserProfile(string userId, string username, string email)
+    {
+        var userProfile = new Dictionary<string, object>
+        {
+            ["username"] = username,
+            ["email"] = email,
+            ["createdAt"] = DateTime.Now.ToBinary(),
+            ["lastLogin"] = DateTime.Now.ToBinary()
+        };
+
+        yield return StartCoroutine(SaveUserData(userId, userProfile));
+    }
+
+    // Convert regular C# object to Firestore document format
+    private FirestoreDocument2 ConvertToFirestoreDocument(object data)
+    {
+        var doc = new FirestoreDocument2
+        {
+            fields = new Dictionary<string, FirestoreField>()
+        };
+
+        string jsonData = JsonConvert.SerializeObject(data);
+        var dataDict = JsonConvert.DeserializeObject<Dictionary<string, object>>(jsonData);
+
+        foreach (var kvp in dataDict)
+        {
+            doc.fields[kvp.Key] = ConvertValueToFirestoreField(kvp.Value);
+        }
+
+        return doc;
+    }
+
+    private FirestoreField ConvertValueToFirestoreField(object value)
+    {
+        var field = new FirestoreField();
+
+        if (value == null)
+        {
+            field.stringValue = "";
+            return field;
+        }
+
+        switch (value.GetType().Name)
+        {
+            case "String":
+                field.stringValue = value.ToString();
+                break;
+            case "Int32":
+            case "Int64":
+                field.integerValue = value.ToString();
+                break;
+            case "Single":
+            case "Double":
+                field.doubleValue = value.ToString();
+                break;
+            case "Boolean":
+                field.booleanValue = (bool)value;
+                break;
+            default:
+                // For complex objects, serialize to JSON string
+                field.stringValue = JsonConvert.SerializeObject(value);
+                break;
+        }
+
+        return field;
+    }
+
+    // Convert Firestore document back to regular C# object
+    private Dictionary<string, object> ConvertFromFirestoreDocument(FirestoreDocument2 doc)
+    {
+        var result = new Dictionary<string, object>();
+
+        if (doc?.fields == null) return result;
+
+        foreach (var kvp in doc.fields)
+        {
+            var field = kvp.Value;
+
+            if (field.stringValue != null)
+            {
+                string strValue = field.stringValue.ToString();
+                // Try to deserialize JSON strings back to objects
+                if (strValue.StartsWith("{") || strValue.StartsWith("["))
+                {
+                    try
+                    {
+                        result[kvp.Key] = JsonConvert.DeserializeObject(strValue);
+                    }
+                    catch
+                    {
+                        result[kvp.Key] = strValue;
+                    }
+                }
+                else
+                {
+                    result[kvp.Key] = strValue;
+                }
+            }
+            else if (field.integerValue != null)
+            {
+                result[kvp.Key] = Convert.ToInt32(field.integerValue);
+            }
+            else if (field.doubleValue != null)
+            {
+                result[kvp.Key] = Convert.ToDouble(field.doubleValue);
+            }
+            else if (field.booleanValue != null)
+            {
+                result[kvp.Key] = (bool)field.booleanValue;
+            }
+        }
+
+        return result;
+    }
+
+    #endregion
+
+    #region Validation & Helper Methods
 
     bool ValidateEmailLogin(string email, string password)
     {
@@ -513,38 +572,30 @@ public class FirebaseAuthManager : MonoBehaviour
         }
     }
 
-    #endregion
-
-    #region Event Handlers
-
-    void AuthStateChanged(object sender, System.EventArgs eventArgs)
+    void SaveAuthData(string userId, string idToken, string refreshToken, bool guest)
     {
-        if (auth.CurrentUser != currentUser)
-        {
-            bool signedIn = auth.CurrentUser != null;
-            currentUser = auth.CurrentUser;
+        currentUserId = userId;
+        currentIdToken = idToken;
+        currentRefreshToken = refreshToken;
+        isGuest = guest;
+        isLoggedIn = true;
 
-            OnAuthStateChanged?.Invoke(signedIn);
-
-            if (signedIn)
-            {
-                HandleSuccessfulLogin(currentUser);
-            }
-        }
+        PlayerPrefs.SetString("UserId", userId);
+        PlayerPrefs.SetString("IdToken", idToken);
+        PlayerPrefs.SetString("RefreshToken", refreshToken);
+        PlayerPrefs.SetInt("WasGuest", guest ? 1 : 0);
+        PlayerPrefs.Save();
     }
 
-    void HandleSuccessfulLogin(FirebaseUser user)
+    void HandleSuccessfulLogin(string userId, string email, string displayName, bool guest)
     {
-        currentUser = user;
+        currentUserId = userId;
+        isGuest = guest;
+        isLoggedIn = true;
 
-        // Save user ID locally
-        PlayerPrefs.SetString("UserId", user.UserId);
-        PlayerPrefs.Save();
+        UpdateProfileUI(email, displayName, guest);
 
-        // Update UI
-        UpdateProfileUI(user);
-
-        if (user.IsAnonymous)
+        if (guest)
         {
             ShowPanel("guest");
             SetStatus("Playing as guest");
@@ -552,62 +603,60 @@ public class FirebaseAuthManager : MonoBehaviour
         else
         {
             ShowPanel("profile");
-            SetStatus($"Welcome, {GetDisplayName(user)}!");
+            SetStatus($"Welcome, {displayName}!");
         }
 
-        OnUserSignedIn?.Invoke(user);
+        OnUserSignedIn?.Invoke(userId);
+        OnAuthStateChanged?.Invoke(true);
     }
 
-    void HandleOfflineLogin(string guestId)
+    void HandleAuthError(string errorResponse)
     {
-        SetStatus("Playing offline as guest");
-        ShowPanel("guest");
-
-        if (guestStatusText != null)
+        try
         {
-            guestStatusText.text = "Offline Mode - Progress saved locally only";
-        }
-
-        // Create a mock user for offline mode
-        OnUserSignedIn?.Invoke(null);
-    }
-
-    void HandleAuthError(System.Exception e)
-    {
-        string errorMessage = "Authentication failed";
-
-        if (e is FirebaseException firebaseEx)
-        {
-            switch (firebaseEx.ErrorCode)
+            var errorData = JsonConvert.DeserializeObject<Dictionary<string, object>>(errorResponse);
+            if (errorData.ContainsKey("error"))
             {
-                case (int)AuthError.WrongPassword:
-                    errorMessage = "Incorrect password";
-                    break;
-                case (int)AuthError.InvalidEmail:
-                    errorMessage = "Invalid email address";
-                    break;
-                case (int)AuthError.UserNotFound:
-                    errorMessage = "No account found with this email";
-                    break;
-                case (int)AuthError.EmailAlreadyInUse:
-                    errorMessage = "Email is already registered";
-                    break;
-                case (int)AuthError.WeakPassword:
-                    errorMessage = "Password is too weak";
-                    break;
-                default:
-                    errorMessage = $"Error: {e.Message}";
-                    break;
+                var error = JsonConvert.DeserializeObject<Dictionary<string, object>>(errorData["error"].ToString());
+                string message = error["message"].ToString();
+
+                switch (message)
+                {
+                    case "EMAIL_NOT_FOUND":
+                        SetStatus("No account found with this email");
+                        break;
+                    case "INVALID_PASSWORD":
+                        SetStatus("Incorrect password");
+                        break;
+                    case "EMAIL_EXISTS":
+                        SetStatus("Email is already registered");
+                        break;
+                    case "WEAK_PASSWORD":
+                        SetStatus("Password is too weak");
+                        break;
+                    default:
+                        SetStatus($"Error: {message}");
+                        break;
+                }
             }
         }
-
-        SetStatus(errorMessage);
-        Debug.LogError($"Auth error: {e.Message}");
+        catch
+        {
+            SetStatus("Authentication failed");
+        }
     }
 
-    #endregion
+    void UpdateProfileUI(string email, string displayName, bool guest)
+    {
+        if (profileEmailText != null)
+            profileEmailText.text = guest ? "Guest User" : email;
 
-    #region UI Management
+        if (profileUsernameText != null)
+            profileUsernameText.text = displayName;
+
+        if (accountTypeText != null)
+            accountTypeText.text = guest ? "Guest Account" : "Registered Account";
+    }
 
     void ShowPanel(string panelName)
     {
@@ -615,851 +664,30 @@ public class FirebaseAuthManager : MonoBehaviour
         if (registerPanel != null) registerPanel.SetActive(panelName == "register");
         if (profilePanel != null) profilePanel.SetActive(panelName == "profile");
         if (guestPanel != null) guestPanel.SetActive(panelName == "guest");
-        if (linkAccountPanel != null) linkAccountPanel.SetActive(panelName == "link");
-    }
-
-    void UpdateProfileUI(FirebaseUser user)
-    {
-        if (profileEmailText != null)
-        {
-            profileEmailText.text = user.Email ?? "Guest User";
-        }
-
-        if (profileUsernameText != null)
-        {
-            profileUsernameText.text = GetDisplayName(user);
-        }
-
-        if (accountTypeText != null)
-        {
-            accountTypeText.text = user.IsAnonymous ? "Guest Account" : "Registered Account";
-        }
-
-        // Show link account button only for anonymous users
-        if (linkAccountButton != null)
-        {
-            linkAccountButton.gameObject.SetActive(user.IsAnonymous);
-        }
-    }
-
-    void ShowOfflineMode()
-    {
-        SetStatus("Playing in offline mode");
-        ShowPanel("guest");
-        UpdateConnectionStatus(false);
     }
 
     void SetStatus(string message)
     {
         if (statusText != null)
-        {
             statusText.text = message;
-        }
         Debug.Log($"Auth Status: {message}");
     }
 
     void ShowLoading(bool show)
     {
         if (loadingIndicator != null)
-        {
             loadingIndicator.SetActive(show);
-        }
-    }
-
-    void UpdateConnectionStatus(bool online)
-    {
-        if (connectionText != null)
-        {
-            connectionText.text = online ? "Online" : "Offline";
-            connectionText.color = online ? Color.green : Color.red;
-        }
-    }
-
-    #endregion
-
-    #region Database Operations
-
-    async Task SaveUserProfile(string userId, string username, string email)
-    {
-        if (!firebaseInitialized) return;
-
-        try
-        {
-            var userProfile = new Dictionary<string, object>
-            {
-                ["username"] = username,
-                ["email"] = email,
-                ["createdAt"] = DateTime.Now.ToBinary(),
-                ["lastLogin"] = DateTime.Now.ToBinary()
-            };
-
-            await databaseRef.Child("userProfiles").Child(userId).UpdateChildrenAsync(userProfile);
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"Failed to save user profile: {e.Message}");
-        }
-    }
-
-    #endregion
-
-    #region Utility Methods
-
-    string GetDisplayName(FirebaseUser user)
-    {
-        if (user == null) return "Guest";
-
-        if (!string.IsNullOrEmpty(user.DisplayName))
-            return user.DisplayName;
-
-        if (!string.IsNullOrEmpty(user.Email))
-            return user.Email.Split('@')[0];
-
-        return user.IsAnonymous ? "Guest" : "Player";
-    }
-
-    public string GetCurrentUserId()
-    {
-        if (currentUser != null)
-            return currentUser.UserId;
-
-        return PlayerPrefs.GetString("UserId", "");
-    }
-
-    public bool IsLoggedIn()
-    {
-        return currentUser != null || !string.IsNullOrEmpty(PlayerPrefs.GetString("UserId", ""));
-    }
-
-    public bool IsGuest()
-    {
-        if (currentUser != null)
-            return currentUser.IsAnonymous;
-        return PlayerPrefs.GetInt("WasGuest", 0) == 1;
-    }
-
-    public bool IsOnline()
-    {
-        return firebaseInitialized && currentUser != null;
-    }
-
-    public FirebaseUser CurrentUser => currentUser;
-    public bool FirebaseInitialized => firebaseInitialized;
-
-    #endregion
-
-    void OnDestroy()
-    {
-        if (auth != null)
-        {
-            auth.StateChanged -= AuthStateChanged;
-        }
-    }
-}
-
-// Complete Progression System with proper Firebase integration
-public class CompleteProgressionSystem : MonoBehaviour
-{
-    [Header("System References")]
-    public FirebaseAuthManager authManager;
-
-    [Header("Progression Settings")]
-    public int targetRuns = 50;
-    public int batteryPerRun = 150;
-    public int batteryBonusThreshold = 5;
-    public int batteryBonus = 300;
-
-    [Header("Sync Settings")]
-    public float autoSyncInterval = 30f;
-    public bool syncOnlyWhenChanged = true;
-
-    private PlayerData playerData = new PlayerData();
-    private DatabaseReference databaseRef;
-    private bool dataChanged = false;
-    private float lastSyncTime = 0f;
-
-    // Game state
-    private float currentRunStartTime;
-    private int currentRunScore = 0;
-    private int currentRunWeapons = 0;
-
-    public event System.Action<RunData> OnRunCompleted;
-    public event System.Action<int> OnBatteryChanged;
-    public event System.Action<string> OnItemUnlocked;
-    public event System.Action<int, int> OnProgressUpdated;
-    public event System.Action OnDataSynced;
-    public event System.Action<PlayerData> OnDataLoaded;
-
-    void Start()
-    {
-        if (authManager != null)
-        {
-            authManager.OnUserSignedIn += HandleUserSignedIn;
-            authManager.OnUserSignedOut += HandleUserSignedOut;
-            authManager.OnFirebaseInitialized += HandleFirebaseInitialized;
-        }
-        else
-        {
-            Debug.LogError("AuthManager reference missing!");
-        }
-
-        LoadLocalData();
-    }
-
-    void Update()
-    {
-        // Auto-sync if user is online and data changed
-        if (authManager != null && authManager.IsOnline() && dataChanged &&
-            Time.time - lastSyncTime > autoSyncInterval)
-        {
-            SyncToFirebase();
-        }
-    }
-
-    void HandleFirebaseInitialized(bool initialized)
-    {
-        if (initialized)
-        {
-            databaseRef = Firebase.Database.FirebaseDatabase.DefaultInstance.RootReference;
-            Debug.Log("Database reference initialized");
-        }
-    }
-
-    void HandleUserSignedIn(FirebaseUser user)
-    {
-        Debug.Log("User signed in, syncing data...");
-        if (user != null && authManager.FirebaseInitialized)
-        {
-            LoadFromFirebase(user.UserId);
-        }
-        else
-        {
-            // Offline mode - use local data
-            TriggerUIUpdates();
-        }
-    }
-
-    void HandleUserSignedOut()
-    {
-        Debug.Log("User signed out");
-        // Don't clear data immediately - let them continue playing
-        TriggerUIUpdates();
-    }
-
-    #region Data Management
-
-    void LoadLocalData()
-    {
-        string userId = authManager?.GetCurrentUserId() ?? "local";
-
-        playerData.currentRun = PlayerPrefs.GetInt($"CurrentRun_{userId}", 0);
-        playerData.currentBattery = PlayerPrefs.GetInt($"CurrentBattery_{userId}", 1000);
-        playerData.consecutiveFailures = PlayerPrefs.GetInt($"ConsecutiveFailures_{userId}", 0);
-
-        // Load unlocks
-        string weaponData = PlayerPrefs.GetString($"UnlockedWeapons_{userId}", "");
-        if (!string.IsNullOrEmpty(weaponData))
-        {
-            try
-            {
-                playerData.unlockedWeapons = JsonConvert.DeserializeObject<List<string>>(weaponData);
-            }
-            catch
-            {
-                playerData.unlockedWeapons = new List<string>(weaponData.Split(','));
-            }
-        }
-
-        if (playerData.unlockedWeapons.Count == 0)
-        {
-            playerData.unlockedWeapons.Add("weapon_basic_rifle");
-        }
-
-        string skinData = PlayerPrefs.GetString($"UnlockedSkins_{userId}", "");
-        if (!string.IsNullOrEmpty(skinData))
-        {
-            try
-            {
-                playerData.unlockedSkins = JsonConvert.DeserializeObject<List<string>>(skinData);
-            }
-            catch
-            {
-                playerData.unlockedSkins = new List<string>(skinData.Split(','));
-            }
-        }
-
-        if (playerData.unlockedSkins.Count == 0)
-        {
-            playerData.unlockedSkins.Add("skin_default");
-        }
-
-        // Load stats
-        string statsData = PlayerPrefs.GetString($"PlayerStats_{userId}", "");
-        if (!string.IsNullOrEmpty(statsData))
-        {
-            try
-            {
-                playerData.stats = JsonConvert.DeserializeObject<PlayerStats>(statsData);
-            }
-            catch
-            {
-                playerData.stats = new PlayerStats();
-            }
-        }
-
-        // Load recent runs
-        string runsData = PlayerPrefs.GetString($"RecentRuns_{userId}", "");
-        if (!string.IsNullOrEmpty(runsData))
-        {
-            try
-            {
-                playerData.completedRuns = JsonConvert.DeserializeObject<List<RunData>>(runsData);
-            }
-            catch
-            {
-                playerData.completedRuns = new List<RunData>();
-            }
-        }
-
-        TriggerUIUpdates();
-        OnDataLoaded?.Invoke(playerData);
-        Debug.Log($"Loaded local data for user: {userId}");
-    }
-
-    void SaveLocalData()
-    {
-        string userId = authManager?.GetCurrentUserId() ?? "local";
-
-        PlayerPrefs.SetInt($"CurrentRun_{userId}", playerData.currentRun);
-        PlayerPrefs.SetInt($"CurrentBattery_{userId}", playerData.currentBattery);
-        PlayerPrefs.SetInt($"ConsecutiveFailures_{userId}", playerData.consecutiveFailures);
-
-        PlayerPrefs.SetString($"UnlockedWeapons_{userId}", JsonConvert.SerializeObject(playerData.unlockedWeapons));
-        PlayerPrefs.SetString($"UnlockedSkins_{userId}", JsonConvert.SerializeObject(playerData.unlockedSkins));
-        PlayerPrefs.SetString($"PlayerStats_{userId}", JsonConvert.SerializeObject(playerData.stats));
-        PlayerPrefs.SetString($"RecentRuns_{userId}", JsonConvert.SerializeObject(playerData.completedRuns));
-
-        PlayerPrefs.SetString($"LastSaveTime_{userId}", DateTime.Now.ToBinary().ToString());
-        PlayerPrefs.Save();
-
-        dataChanged = true;
-    }
-
-    async void LoadFromFirebase(string userId)
-    {
-        if (databaseRef == null) return;
-
-        try
-        {
-            var snapshot = await databaseRef.Child("players").Child(userId).GetValueAsync();
-
-            if (snapshot.Exists)
-            {
-                string jsonData = snapshot.GetRawJsonValue();
-                var firebaseData = JsonConvert.DeserializeObject<PlayerData>(jsonData);
-
-                // Compare with local data timestamp
-                string localTimeStr = PlayerPrefs.GetString($"LastSaveTime_{userId}", "0");
-                DateTime localTime = DateTime.FromBinary(Convert.ToInt64(localTimeStr));
-
-                if (firebaseData.GetLastPlayTime() > localTime)
-                {
-                    // Firebase data is newer
-                    playerData = firebaseData;
-                    SaveLocalData();
-                    Debug.Log("Loaded newer data from Firebase");
-                }
-                else
-                {
-                    // Local data is newer or same
-                    await SyncToFirebase();
-                    Debug.Log("Local data is newer, synced to Firebase");
-                }
-            }
-            else
-            {
-                // No Firebase data, upload local
-                await SyncToFirebase();
-                Debug.Log("No Firebase data found, uploaded local data");
-            }
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"Failed to load from Firebase: {e.Message}");
-        }
-
-        TriggerUIUpdates();
-        OnDataLoaded?.Invoke(playerData);
-    }
-
-    async Task SyncToFirebase()
-    {
-        if (databaseRef == null || authManager == null || !authManager.IsOnline()) return;
-
-        try
-        {
-            string userId = authManager.GetCurrentUserId();
-            playerData.UpdateLastPlayTime();
-
-            string jsonData = JsonConvert.SerializeObject(playerData);
-            await databaseRef.Child("players").Child(userId).SetRawJsonValueAsync(jsonData);
-
-            lastSyncTime = Time.time;
-            dataChanged = false;
-            OnDataSynced?.Invoke();
-            Debug.Log("Data synced to Firebase successfully");
-        }
-        catch (System.Exception e)
-        {
-            Debug.LogError($"Failed to sync to Firebase: {e.Message}");
-        }
-    }
-
-    public async void ForceFirebaseSync()
-    {
-        if (authManager != null && authManager.IsOnline())
-        {
-            await SyncToFirebase();
-        }
-    }
-
-    #endregion
-
-    #region Game Logic
-
-    public void StartNewRun()
-    {
-        playerData.currentRun++;
-        currentRunStartTime = Time.time;
-        currentRunScore = 0;
-        currentRunWeapons = 0;
-
-        SaveLocalData();
-        Debug.Log($"Starting Run #{playerData.currentRun}");
-    }
-
-    public void AddScore(int points)
-    {
-        currentRunScore += points;
-        playerData.stats.totalScore += points;
-    }
-
-    public void AddWeaponFound()
-    {
-        currentRunWeapons++;
-        playerData.stats.totalWeaponsFound++;
-    }
-
-    public void CompleteRun()
-    {
-        float runTime = Time.time - currentRunStartTime;
-        var runData = new RunData(playerData.currentRun, runTime, currentRunScore, currentRunWeapons);
-        playerData.completedRuns.Add(runData);
-
-        // Update stats
-        playerData.stats.totalPlayTime += runTime;
-        if (currentRunScore > playerData.stats.bestRunScore)
-            playerData.stats.bestRunScore = currentRunScore;
-        if (runTime < playerData.stats.fastestRunTime)
-            playerData.stats.fastestRunTime = runTime;
-
-        // Keep only last 20 runs for performance
-        if (playerData.completedRuns.Count > 20)
-        {
-            playerData.completedRuns.RemoveAt(0);
-        }
-
-        // Calculate rewards
-        int batteryReward = batteryPerRun;
-        if (playerData.currentRun % batteryBonusThreshold == 0)
-        {
-            batteryReward += batteryBonus;
-        }
-
-        AddBattery(batteryReward);
-        CheckRunMilestoneUnlocks(playerData.currentRun);
-
-        SaveLocalData();
-
-        OnRunCompleted?.Invoke(runData);
-        OnProgressUpdated?.Invoke(playerData.currentRun, targetRuns);
-
-        Debug.Log($"Run #{playerData.currentRun} completed! Time: {runTime:F1}s, Score: {currentRunScore}");
-    }
-
-    public bool SpendBattery(int amount)
-    {
-        if (playerData.currentBattery >= amount)
-        {
-            playerData.currentBattery -= amount;
-            SaveLocalData();
-            OnBatteryChanged?.Invoke(playerData.currentBattery);
-            return true;
-        }
-        return false;
-    }
-
-    public void AddBattery(int amount)
-    {
-        playerData.currentBattery += amount;
-        SaveLocalData();
-        OnBatteryChanged?.Invoke(playerData.currentBattery);
-    }
-
-    public void UpdateGamblingState(int consecutiveFailures)
-    {
-        playerData.consecutiveFailures = consecutiveFailures;
-        SaveLocalData();
-    }
-
-    private void CheckRunMilestoneUnlocks(int runNumber)
-    {
-        // Define unlock milestones
-        var milestones = new Dictionary<int, (string itemId, string message)>
-        {
-            { 5, ("weapon_shotgun", "Shotgun unlocked!") },
-            { 10, ("skin_red_player", "Red skin unlocked!") },
-            { 15, ("weapon_sniper", "Sniper rifle unlocked!") },
-            { 20, ("weapon_assault", "Assault rifle unlocked!") },
-            { 25, ("skin_gold_weapon", "Golden weapon skin unlocked!") },
-            { 30, ("weapon_rocket", "Rocket launcher unlocked!") },
-            { 35, ("weapon_plasma", "Plasma gun unlocked!") },
-            { 40, ("skin_diamond", "Diamond skin unlocked!") },
-            { 45, ("weapon_laser", "Laser weapon unlocked!") },
-            { 50, ("skin_legendary", "Legendary skin unlocked!") }
-        };
-
-        if (milestones.ContainsKey(runNumber))
-        {
-            var unlock = milestones[runNumber];
-            UnlockItem(unlock.itemId, unlock.message);
-        }
-    }
-
-    private void UnlockItem(string itemId, string message)
-    {
-        bool unlocked = false;
-
-        if (itemId.StartsWith("weapon_") && !playerData.unlockedWeapons.Contains(itemId))
-        {
-            playerData.unlockedWeapons.Add(itemId);
-            unlocked = true;
-        }
-        else if (itemId.StartsWith("skin_") && !playerData.unlockedSkins.Contains(itemId))
-        {
-            playerData.unlockedSkins.Add(itemId);
-            unlocked = true;
-        }
-
-        if (unlocked)
-        {
-            playerData.stats.totalUnlocks++;
-            SaveLocalData();
-            OnItemUnlocked?.Invoke(itemId);
-            Debug.Log(message);
-        }
-    }
-
-    private void TriggerUIUpdates()
-    {
-        OnBatteryChanged?.Invoke(playerData.currentBattery);
-        OnProgressUpdated?.Invoke(playerData.currentRun, targetRuns);
     }
 
     #endregion
 
     #region Public Getters
 
-    public int CurrentRun => playerData.currentRun;
-    public int CurrentBattery => playerData.currentBattery;
-    public List<string> UnlockedWeapons => playerData.unlockedWeapons;
-    public List<string> UnlockedSkins => playerData.unlockedSkins;
-    public List<RunData> CompletedRuns => playerData.completedRuns;
-    public PlayerStats Stats => playerData.stats;
-    public int ConsecutiveFailures => playerData.consecutiveFailures;
-
-    public float GetProgressPercentage()
-    {
-        return (float)playerData.currentRun / targetRuns * 100f;
-    }
-
-    public bool IsComplete()
-    {
-        return playerData.currentRun >= targetRuns;
-    }
-
-    public RunData GetBestRun()
-    {
-        if (playerData.completedRuns.Count == 0) return null;
-
-        RunData best = playerData.completedRuns[0];
-        foreach (var run in playerData.completedRuns)
-        {
-            if (run.score > best.score)
-                best = run;
-        }
-        return best;
-    }
-
-    public List<RunData> GetRecentRuns(int count = 5)
-    {
-        int startIndex = Mathf.Max(0, playerData.completedRuns.Count - count);
-        return playerData.completedRuns.GetRange(startIndex, playerData.completedRuns.Count - startIndex);
-    }
-
-    public bool IsItemUnlocked(string itemId)
-    {
-        if (itemId.StartsWith("weapon_"))
-            return playerData.unlockedWeapons.Contains(itemId);
-        if (itemId.StartsWith("skin_"))
-            return playerData.unlockedSkins.Contains(itemId);
-        return false;
-    }
+    public string GetCurrentUserId() => currentUserId;
+    public bool IsLoggedIn() => isLoggedIn;
+    public bool IsGuest() => isGuest;
+    public bool IsOnline() => !isGuest && !string.IsNullOrEmpty(currentIdToken);
+    public string GetIdToken() => currentIdToken;
 
     #endregion
-
-    void OnApplicationPause(bool pauseStatus)
-    {
-        if (pauseStatus && authManager != null && authManager.IsOnline())
-        {
-            ForceFirebaseSync();
-        }
-    }
-
-    void OnApplicationFocus(bool hasFocus)
-    {
-        if (!hasFocus && authManager != null && authManager.IsOnline())
-        {
-            ForceFirebaseSync();
-        }
-    }
-
-    void OnDestroy()
-    {
-        if (authManager != null)
-        {
-            authManager.OnUserSignedIn -= HandleUserSignedIn;
-            authManager.OnUserSignedOut -= HandleUserSignedOut;
-            authManager.OnFirebaseInitialized -= HandleFirebaseInitialized;
-        }
-
-        // Final sync on destroy
-        if (authManager != null && authManager.IsOnline())
-        {
-            ForceFirebaseSync();
-        }
-    }
-}
-
-// Complete Gambling System that integrates with progression
-public class CompleteGamblingSystem : MonoBehaviour
-{
-    [Header("System References")]
-    public CompleteProgressionSystem progressionSystem;
-
-    [Header("Gambling Configuration")]
-    public List<GamblingReward> possibleRewards = new List<GamblingReward>();
-    public int baseCost = 100;
-    public float costMultiplier = 1.2f;
-    public int peakThreshold = 5;
-
-    [Header("Peak System")]
-    public float peakMultiplier = 2.0f;
-    public Color normalColor = Color.white;
-    public Color peakColor = Color.red;
-
-    private bool isPeakActive = false;
-
-    public event System.Action<GamblingReward> OnRewardWon;
-    public event System.Action<bool> OnPeakStateChanged;
-    public event System.Action<int> OnCostChanged;
-
-    void Start()
-    {
-        if (progressionSystem == null)
-        {
-            progressionSystem = FindObjectOfType<CompleteProgressionSystem>();
-        }
-
-        if (progressionSystem != null)
-        {
-            progressionSystem.OnDataLoaded += HandleDataLoaded;
-        }
-
-        // Initialize default rewards if none set
-        if (possibleRewards.Count == 0)
-        {
-            InitializeDefaultRewards();
-        }
-
-        CheckPeakState();
-    }
-
-    void HandleDataLoaded(PlayerData data)
-    {
-        CheckPeakState();
-    }
-
-    void InitializeDefaultRewards()
-    {
-        possibleRewards = new List<GamblingReward>
-        {
-            new GamblingReward(GamblingReward.RewardType.Currency, "battery", 50, 30f, 0),
-            new GamblingReward(GamblingReward.RewardType.Currency, "battery", 100, 20f, 0),
-            new GamblingReward(GamblingReward.RewardType.Currency, "battery", 200, 10f, 5),
-            new GamblingReward(GamblingReward.RewardType.Weapon, "weapon_shotgun", 1, 15f, 5),
-            new GamblingReward(GamblingReward.RewardType.Weapon, "weapon_sniper", 1, 10f, 15),
-            new GamblingReward(GamblingReward.RewardType.Weapon, "weapon_plasma", 1, 5f, 35),
-            new GamblingReward(GamblingReward.RewardType.Skin, "skin_red_player", 1, 12f, 10),
-            new GamblingReward(GamblingReward.RewardType.Skin, "skin_gold_weapon", 1, 8f, 25),
-            new GamblingReward(GamblingReward.RewardType.Skin, "skin_legendary", 1, 3f, 50)
-        };
-    }
-
-    public bool CanGamble()
-    {
-        if (progressionSystem == null) return false;
-        return progressionSystem.CurrentBattery >= GetCurrentCost();
-    }
-
-    public int GetCurrentCost()
-    {
-        if (progressionSystem == null) return baseCost;
-
-        int totalGambles = progressionSystem.Stats.totalGambles;
-        return Mathf.RoundToInt(baseCost * Mathf.Pow(costMultiplier, totalGambles / 10f));
-    }
-
-    public GamblingReward PerformGamble()
-    {
-        if (progressionSystem == null || !CanGamble()) return null;
-
-        int cost = GetCurrentCost();
-        if (!progressionSystem.SpendBattery(cost)) return null;
-
-        // Update gambling stats
-        progressionSystem.Stats.totalGambles++;
-
-        // Filter rewards by run requirement
-        var availableRewards = possibleRewards.FindAll(r =>
-            r.requiredRuns <= progressionSystem.CurrentRun);
-
-        if (availableRewards.Count == 0) return null;
-
-        // Calculate total chance with peak bonus
-        float totalChance = 0f;
-        foreach (var reward in availableRewards)
-        {
-            float adjustedChance = reward.chance;
-            if (isPeakActive) adjustedChance *= peakMultiplier;
-            totalChance += adjustedChance;
-        }
-
-        // Roll for reward
-        float roll = UnityEngine.Random.Range(0f, totalChance);
-        float currentChance = 0f;
-
-        foreach (var reward in availableRewards)
-        {
-            float adjustedChance = reward.chance;
-            if (isPeakActive) adjustedChance *= peakMultiplier;
-            currentChance += adjustedChance;
-
-            if (roll <= currentChance)
-            {
-                // Won a reward
-                HandleRewardWon(reward);
-                ResetConsecutiveFailures();
-                OnRewardWon?.Invoke(reward);
-                OnCostChanged?.Invoke(GetCurrentCost());
-                return reward;
-            }
-        }
-
-        // No reward won
-        IncrementConsecutiveFailures();
-        OnRewardWon?.Invoke(null);
-        OnCostChanged?.Invoke(GetCurrentCost());
-        return null;
-    }
-
-    void HandleRewardWon(GamblingReward reward)
-    {
-        if (progressionSystem == null) return;
-
-        switch (reward.type)
-        {
-            case GamblingReward.RewardType.Currency:
-                progressionSystem.AddBattery(reward.amount);
-                break;
-
-            case GamblingReward.RewardType.Weapon:
-                // The progression system will handle unlock logic
-                break;
-
-            case GamblingReward.RewardType.Skin:
-                // The progression system will handle unlock logic
-                break;
-
-            case GamblingReward.RewardType.Upgrade:
-                // Handle upgrades if implemented
-                break;
-        }
-    }
-
-    void IncrementConsecutiveFailures()
-    {
-        if (progressionSystem == null) return;
-
-        int newFailures = progressionSystem.ConsecutiveFailures + 1;
-        progressionSystem.UpdateGamblingState(newFailures);
-        CheckPeakState();
-    }
-
-    void ResetConsecutiveFailures()
-    {
-        if (progressionSystem == null) return;
-
-        progressionSystem.UpdateGamblingState(0);
-        CheckPeakState();
-    }
-
-    void CheckPeakState()
-    {
-        if (progressionSystem == null) return;
-
-        bool newPeakState = progressionSystem.ConsecutiveFailures >= peakThreshold;
-        if (newPeakState != isPeakActive)
-        {
-            isPeakActive = newPeakState;
-            OnPeakStateChanged?.Invoke(isPeakActive);
-        }
-    }
-
-    public void ResetPeakSystem()
-    {
-        if (progressionSystem != null)
-        {
-            progressionSystem.UpdateGamblingState(0);
-        }
-        CheckPeakState();
-    }
-
-    #region Public Getters
-
-    public bool IsPeakActive => isPeakActive;
-    public int ConsecutiveFailures => progressionSystem?.ConsecutiveFailures ?? 0;
-    public float PeakMultiplier => peakMultiplier;
-    public List<GamblingReward> AvailableRewards => possibleRewards.FindAll(r =>
-        progressionSystem != null && r.requiredRuns <= progressionSystem.CurrentRun);
-
-    #endregion
-
-    void OnDestroy()
-    {
-        if (progressionSystem != null)
-        {
-            progressionSystem.OnDataLoaded -= HandleDataLoaded;
-        }
-    }
 }
