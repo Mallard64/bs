@@ -4,18 +4,21 @@ using TMPro;
 
 public class PlayerMovement : NetworkBehaviour
 {
-    public float moveSpeed = 5f;       // Movement speed
-    public Rigidbody2D rb;             // Rigidbody2D reference
-    public FixedJoystick joystick;     // Reference to the Rigid Joystick from Joystick Pack
-
-    private Vector2 movement;          // Movement vector
-    private Animator animator;         // Animator reference
+    public float moveSpeed = 5f;
+    public Rigidbody2D rb;
+    public FixedJoystick joystick;
+    private Vector2 movement;
+    private Animator animator;
     private SpriteRenderer spriteRenderer;
-    public Transform cameraTransform;  // Camera transform (if needed)
-    public string name;                // Player name (for animations)
+    public Transform cameraTransform;
+    public string name;
     public MouseShooting ms;
     public TextMeshProUGUI t;
     public bool isKeyboard;
+
+    private Enemy enemyScript;
+    private string currentAnimation = "";
+    private bool isWalking = false;
 
     void Start()
     {
@@ -23,24 +26,19 @@ public class PlayerMovement : NetworkBehaviour
         animator = GetComponent<Animator>();
         ms = GetComponent<MouseShooting>();
         spriteRenderer = GetComponent<SpriteRenderer>();
-
-        // Ensure Rigidbody2D has the correct settings
-        rb.gravityScale = 0; // Disable gravity for 2D movement
+        enemyScript = GetComponent<Enemy>();
+        rb.gravityScale = 0;
     }
 
     void Update()
     {
-
         if (!isLocalPlayer || !isClient) return;
-        // Keep camera rotation fixed
 
         if (cameraTransform != null)
         {
-            
             cameraTransform.rotation = Quaternion.Euler(0, 0, 0);
         }
 
-        // Get movement input from the Rigid Joystick
         float moveX, moveY;
         if (!isKeyboard)
         {
@@ -59,13 +57,15 @@ public class PlayerMovement : NetworkBehaviour
             moveY = -moveY;
         }
 
-        // Normalize movement vector for smooth movement
         movement = new Vector2(moveX, moveY).normalized;
 
-        // Handle animation & sprite flipping
-        if (movement.magnitude > 0)
-        { 
-            if (movement.x > 0.05 || movement.x < -0.05)
+        // Only handle movement animations when NOT in hitstun
+        if (enemyScript.hitstuntimer <= 0.01f)
+        {
+            bool shouldWalk = movement.magnitude > 0;
+
+            // Handle sprite flipping
+            if (shouldWalk && (movement.x > 0.05f || movement.x < -0.05f))
             {
                 if (ms.isFlipped)
                 {
@@ -76,21 +76,41 @@ public class PlayerMovement : NetworkBehaviour
                     spriteRenderer.flipX = movement.x < 0;
                 }
             }
-            
-            
-            animator.Play(name + "_walk");         // Play walking animation
+
+            // Only change animation when movement state changes
+            if (shouldWalk && !isWalking)
+            {
+                PlayAnimation(name + "_walk");
+                isWalking = true;
+            }
+            else if (!shouldWalk && isWalking)
+            {
+                PlayAnimation(name + "_idle");
+                isWalking = false;
+            }
         }
-        else
+        // When in hitstun, don't change isWalking state or play movement animations
+    }
+
+    private void PlayAnimation(string animName)
+    {
+        if (currentAnimation != animName)
         {
-            animator.Play(name + "_idle");         // Play idle animation
+            animator.Play(animName);
+            currentAnimation = animName;
         }
+    }
+
+    // Called by Enemy script when hitstun ends to reset animation state
+    public void ResetAnimationState()
+    {
+        currentAnimation = "";
+        isWalking = false;
     }
 
     void FixedUpdate()
     {
-        if (!isLocalPlayer || !isClient) return; // Only the local player can move
-
-        // Move the player using Rigidbody2D physics
+        if (!isLocalPlayer || !isClient) return;
         rb.velocity = movement * moveSpeed;
     }
 }

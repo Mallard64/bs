@@ -176,11 +176,11 @@ MonoBehaviour:
   bulletLifetime: 1
   id: 3
   maxAmmo: 6
+  parentNetId: 0
   maxSwaps: 0
   isSpecial: 0
   audioSource: {fileID: 1425803978968836896}
-  shootSound: {fileID: 0}
-  parent: {fileID: 0}
+  shootSound: {fileID: 8300000, guid: 26e001de8154848bcae33645059531ae, type: 3}
 --- !u!114 &-2888494709203317111
 MonoBehaviour:
   m_ObjectHideFlags: 0

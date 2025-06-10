@@ -52,13 +52,11 @@ MonoBehaviour:
   syncDirection: 0
   syncMode: 0
   syncInterval: 0
-  bulletDamage: 30
+  bulletDamage: 15
   knockbackBase: 18
-  knockbackScaling: 50
+  knockbackScaling: 40
   shooterId: 0
   shotByEnemy: 0
-  hitEffectPrefab: {fileID: 8069048671362576581, guid: a85cde9d74226409594c9e87d9344995,
-    type: 3}
   outwardOffset: 1.2
   parent: {fileID: 0}
 --- !u!50 &8616886955481212930

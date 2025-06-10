@@ -629,9 +629,9 @@ public class MouseShooting : NetworkBehaviour
         var prefab = weapons[weaponIdx];
         var instance = Instantiate(prefab, firePoint.position, Quaternion.identity);
         var ni = instance.GetComponent<NetworkIdentity>();
-        instance.transform.SetParent(firePoint, false);
+        instance.transform.SetParent(gameObject.transform, true);
         instance.GetComponent<Weapon>().slotnum = weapId;
-        instance.GetComponent<Weapon>().parent = gameObject;
+        instance.GetComponent<Weapon>().SetParent(gameObject);
         NetworkServer.Spawn(instance, connectionToClient);
         if (weaponIdA != 0 && weaponIdB != 0 && weaponIdC != 0)
         {
