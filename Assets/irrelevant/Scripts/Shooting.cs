@@ -692,12 +692,12 @@ public class MouseShooting : NetworkBehaviour
                 var fireRb = fireBolt.GetComponent<Rigidbody2D>();
                 fireRb.velocity = direction.normalized * (bulletSpeed * 1.2f);
                 
-                fireBolt.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
-                // Add fire damage over time property
-                if (fireBolt.GetComponent<Bullet>() != null)
-                {
-                    fireBolt.GetComponent<Bullet>().damage = 15f; // Lower direct damage but adds burn
-                }
+                var fireBullet = fireBolt.GetComponent<Bullet>();
+                fireBullet.shooterId = GetComponent<Enemy>().connectionId;
+                fireBullet.damage = 15f; // Lower direct damage but adds burn
+                fireBullet.effectType = BulletEffectType.BurnDamage;
+                fireBullet.effectDuration = 4f; // 4 seconds of burning
+                fireBullet.effectDamage = 3f; // 3 damage per second
                 
                 NetworkServer.Spawn(fireBolt);
                 Destroy(fireBolt, bulletLifetime * 0.8f);
@@ -713,17 +713,18 @@ public class MouseShooting : NetworkBehaviour
                 var iceRb = iceShard.GetComponent<Rigidbody2D>();
                 iceRb.velocity = direction.normalized * (bulletSpeed * 0.9f);
                 
-                iceShard.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
-                if (iceShard.GetComponent<Bullet>() != null)
-                {
-                    iceShard.GetComponent<Bullet>().damage = 20f; // Medium damage + slow
-                }
+                var iceBullet = iceShard.GetComponent<Bullet>();
+                iceBullet.shooterId = GetComponent<Enemy>().connectionId;
+                iceBullet.damage = 20f; // Medium damage + slow
+                iceBullet.effectType = BulletEffectType.SlowEffect;
+                iceBullet.effectDuration = 3f; // 3 seconds of slowing
+                iceBullet.slowAmount = 0.4f; // Reduce movement to 40% of normal speed
                 
                 NetworkServer.Spawn(iceShard);
                 Destroy(iceShard, bulletLifetime);
                 break;
 
-            case 2: // Lightning Mode - Chain lightning effect
+            case 2: // Lightning Mode - Chain lightning effect with high startup
                 Vector3 lightningPos = firePoint.position + direction.normalized * 0.4f;
                 GameObject lightning = Instantiate(bulletPrefabs[2], lightningPos, Quaternion.identity);
                 
@@ -733,11 +734,14 @@ public class MouseShooting : NetworkBehaviour
                 var lightningRb = lightning.GetComponent<Rigidbody2D>();
                 lightningRb.velocity = direction.normalized * (bulletSpeed * 1.5f);
                 
-                lightning.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
-                if (lightning.GetComponent<Bullet>() != null)
-                {
-                    lightning.GetComponent<Bullet>().damage = 35f; // High damage, can chain
-                }
+                var lightningBullet = lightning.GetComponent<Bullet>();
+                lightningBullet.shooterId = GetComponent<Enemy>().connectionId;
+                lightningBullet.damage = 35f; // High damage, can chain
+                lightningBullet.effectType = BulletEffectType.LightningBolt;
+                lightningBullet.effectDuration = 0f; // Instant effect
+                lightningBullet.effectDamage = 25f; // Lightning bolt damage
+                lightningBullet.lightningRange = 3f; // 3 unit range for lightning
+                lightningBullet.lightningTargets = 4; // Up to 4 additional targets
                 
                 NetworkServer.Spawn(lightning);
                 Destroy(lightning, bulletLifetime * 0.6f);

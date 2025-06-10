@@ -111,6 +111,8 @@ public class PlayerMovement : NetworkBehaviour
     void FixedUpdate()
     {
         if (!isLocalPlayer || !isClient) return;
+        
+        // Apply movement with current speed (accounts for slow effects)
         rb.velocity = movement * moveSpeed;
     }
 }

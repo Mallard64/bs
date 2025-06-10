@@ -49,13 +49,15 @@ public class Enemy : NetworkBehaviour
         spriteRenderer = GetComponent<SpriteRenderer>();
         mover = GetComponent<PlayerMovement>();
         ms = GetComponent<MouseShooting>();
-        connectionId = (new System.Random()).Next();
     }
 
     #region Server-side setup
     public override void OnStartServer()
     {
         base.OnStartServer();
+
+        // Set the connection ID properly for multiplayer
+        connectionId = connectionToClient.connectionId;
 
         var networkManager = (CustomNetworkManager1)NetworkManager.singleton;
         assignedSpawnPoint = networkManager.AssignSpawnPoint(connectionToClient.connectionId);

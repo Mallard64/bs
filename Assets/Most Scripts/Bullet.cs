@@ -3,6 +3,15 @@ using Mirror;
 using System.Collections;
 using TMPro;
 
+public enum BulletEffectType
+{
+    None,
+    BurnDamage,
+    SlowEffect,
+    FreezeEffect,
+    LightningBolt
+}
+
 public class Bullet : NetworkBehaviour
 {
     public int bulletDamage = 10;
@@ -13,6 +22,14 @@ public class Bullet : NetworkBehaviour
     public bool shotByEnemy = false;  // Track if shot by enemy or player
     private Vector2 lastPosition;
     private Vector2 moveDirection;
+    
+    [Header("Special Effects")]
+    public BulletEffectType effectType = BulletEffectType.None;
+    public float effectDuration = 3f;
+    public float effectDamage = 5f; // For burn damage
+    public float slowAmount = 0.5f; // Multiplier for movement speed (0.5 = 50% speed)
+    public float lightningRange = 2f; // Range for lightning bolt effect
+    public int lightningTargets = 3; // Max targets for lightning chains
 
     [SerializeField] private float outwardOffset = 5f;
     public GameObject parent;
@@ -105,7 +122,10 @@ public class Bullet : NetworkBehaviour
         float stun = (kb * 0.4f) / 60f;
         player.ApplyKnockback(dir*kb, stun/10f);
         
-        // 5) Show damage number if combo multiplier > 1
+        // 5) Apply special effects
+        ApplySpecialEffect(player.gameObject, col.contacts[0].point);
+        
+        // 6) Show damage number if combo multiplier > 1
         if (comboMultiplier > 1f)
         {
             ShowComboHitEffect(player.transform.position, finalDamage, comboMultiplier);
@@ -130,6 +150,9 @@ public class Bullet : NetworkBehaviour
         // 4) Apply knockback (ClientRpc for enemies)
         float stun = (kb * 0.4f) / 60f;
         actualEnemy.ApplyKnockback(dir * kb, stun / 15f);
+        
+        // 5) Apply special effects
+        ApplySpecialEffect(actualEnemy.gameObject, col.contacts[0].point);
     }
 
     Vector2 GetKnockbackDirection(Collision2D col)
@@ -273,5 +296,143 @@ public class Bullet : NetworkBehaviour
         }
         
         Destroy(damageText);
+    }
+    
+    void ApplySpecialEffect(GameObject target, Vector3 hitPosition)
+    {
+        switch (effectType)
+        {
+            case BulletEffectType.BurnDamage:
+                ApplyBurnEffect(target);
+                break;
+            case BulletEffectType.SlowEffect:
+                ApplySlowEffect(target);
+                break;
+            case BulletEffectType.FreezeEffect:
+                ApplyFreezeEffect(target);
+                break;
+            case BulletEffectType.LightningBolt:
+                ApplyLightningEffect(target, hitPosition);
+                break;
+        }
+    }
+    
+    void ApplyBurnEffect(GameObject target)
+    {
+        var burnEffect = target.GetComponent<BurnEffect>();
+        if (burnEffect == null)
+        {
+            burnEffect = target.AddComponent<BurnEffect>();
+        }
+        burnEffect.ApplyBurn(effectDamage, effectDuration, 1f); // 1 second intervals
+    }
+    
+    void ApplySlowEffect(GameObject target)
+    {
+        var slowEffect = target.GetComponent<SlowEffect>();
+        if (slowEffect == null)
+        {
+            slowEffect = target.AddComponent<SlowEffect>();
+        }
+        slowEffect.ApplySlow(slowAmount, effectDuration);
+    }
+    
+    void ApplyFreezeEffect(GameObject target)
+    {
+        var freezeEffect = target.GetComponent<FreezeEffect>();
+        if (freezeEffect == null)
+        {
+            freezeEffect = target.AddComponent<FreezeEffect>();
+        }
+        freezeEffect.ApplyFreeze(effectDuration);
+    }
+    
+    void ApplyLightningEffect(GameObject target, Vector3 position)
+    {
+        // Add random variance to lightning position
+        Vector3 lightningPos = position + new Vector3(
+            Random.Range(-lightningRange * 0.5f, lightningRange * 0.5f),
+            Random.Range(-lightningRange * 0.5f, lightningRange * 0.5f),
+            0f
+        );
+        
+        // Create lightning bolt prefab at position with startup delay
+        StartCoroutine(SpawnLightningBolt(lightningPos));
+    }
+    
+    IEnumerator SpawnLightningBolt(Vector3 position)
+    {
+        // High startup delay for lightning
+        yield return new WaitForSeconds(0.8f);
+        
+        // Find all enemies within lightning range
+        Collider2D[] targets = Physics2D.OverlapCircleAll(position, lightningRange);
+        int hitCount = 0;
+        
+        foreach (var collider in targets)
+        {
+            if (hitCount >= lightningTargets) break;
+            
+            var enemy = collider.GetComponent<Enemy>();
+            var actualEnemy = collider.GetComponent<ActualEnemy>();
+            
+            bool shouldHit = false;
+            
+            // Check if valid target (same logic as bullet collision)
+            if (!shotByEnemy && enemy != null && enemy.connectionToClient != null && 
+                !enemy.isEnemy && shooterId != enemy.connectionId)
+            {
+                shouldHit = true;
+                enemy.TakeDamage((int)effectDamage);
+            }
+            else if (!shotByEnemy && actualEnemy != null && actualEnemy.isEnemy)
+            {
+                shouldHit = true;
+                actualEnemy.TakeDamage((int)effectDamage);
+            }
+            else if (shotByEnemy && enemy != null && enemy.connectionToClient != null && !enemy.isEnemy)
+            {
+                shouldHit = true;
+                enemy.TakeDamage((int)effectDamage);
+            }
+            
+            if (shouldHit)
+            {
+                hitCount++;
+                // Spawn visual lightning effect
+                SpawnLightningVisual(position, collider.transform.position);
+            }
+        }
+    }
+    
+    [ClientRpc]
+    void SpawnLightningVisual(Vector3 startPos, Vector3 endPos)
+    {
+        // Create a simple line renderer for lightning effect
+        GameObject lightningLine = new GameObject("Lightning");
+        LineRenderer lr = lightningLine.AddComponent<LineRenderer>();
+        
+        lr.material = new Material(Shader.Find("Sprites/Default"));
+        lr.color = Color.cyan;
+        lr.startWidth = 0.1f;
+        lr.endWidth = 0.05f;
+        lr.positionCount = 2;
+        lr.useWorldSpace = true;
+        lr.sortingOrder = 10;
+        
+        lr.SetPosition(0, startPos);
+        lr.SetPosition(1, endPos);
+        
+        // Destroy lightning visual after short duration
+        StartCoroutine(DestroyLightningVisual(lightningLine, 0.2f));
+    }
+    
+    IEnumerator DestroyLightningVisual(GameObject lightning, float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        if (lightning != null)
+        {
+            Destroy(lightning);
+        }
     }
 }
