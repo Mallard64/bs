@@ -468,6 +468,20 @@ public class MouseShooting : NetworkBehaviour
         var weapon = weaponNi.GetComponent<Weapon>();
         if (weapon == null) return;
 
+        // Register combo action
+        var comboSystem = GetComponent<WeaponComboSystem>();
+        if (comboSystem != null)
+        {
+            comboSystem.RegisterWeaponFire(weapon.id, swapModeNum, direction);
+        }
+        
+        // Add overcharge for weapon use
+        var overchargeSystem = GetComponent<WeaponOverchargeSystem>();
+        if (overchargeSystem != null)
+        {
+            overchargeSystem.AddOvercharge(2f); // Base overcharge for weapon use
+        }
+
         // Start shooting sequence
         StartCoroutine(ShootingSequence(weapon.id, direction, weapon.startup, weapon.shot, weapon.end));
 
@@ -663,7 +677,7 @@ public class MouseShooting : NetworkBehaviour
 
     // ===== NEW MULTI-MODE WEAPONS =====
 
-    private void ShootElementalStaff(Vector3 direction)
+    public void ShootElementalStaff(Vector3 direction)
     {
         // Elemental Staff - Fire/Ice/Lightning modes inspired by Brawl Stars
         switch (swapModeNum)
@@ -731,7 +745,7 @@ public class MouseShooting : NetworkBehaviour
         }
     }
 
-    private void ShootMorphCannon(Vector3 direction)
+    public void ShootMorphCannon(Vector3 direction)
     {
         // Morph Cannon - Rocket/Beam/Grenade modes inspired by Smash Bros items
         switch (swapModeNum)
@@ -798,7 +812,7 @@ public class MouseShooting : NetworkBehaviour
         }
     }
 
-    private void ShootSpiritBow(Vector3 direction)
+    public void ShootSpiritBow(Vector3 direction)
     {
         // Spirit Bow - Piercing/Explosive/Homing modes
         switch (swapModeNum)
@@ -865,7 +879,7 @@ public class MouseShooting : NetworkBehaviour
         }
     }
 
-    private void ShootWarHammer(Vector3 direction)
+    public void ShootWarHammer(Vector3 direction)
     {
         // War Hammer - Slam/Throw/Spin modes inspired by Smash Bros
         switch (swapModeNum)
@@ -1016,7 +1030,7 @@ public class MouseShooting : NetworkBehaviour
         Destroy(burstShot, bulletLifetime);
     }
 
-    private void ShootNinjaKunai(Vector3 direction)
+    public void ShootNinjaKunai(Vector3 direction)
     {
         // Ninja Kunai - Shadow/Poison/Teleport modes
         switch (swapModeNum)
@@ -1086,7 +1100,7 @@ public class MouseShooting : NetworkBehaviour
         }
     }
 
-    private void ShootChaosOrb(Vector3 direction)
+    public void ShootChaosOrb(Vector3 direction)
     {
         // Chaos Orb - Random/Portal/Gravity modes
         switch (swapModeNum)
