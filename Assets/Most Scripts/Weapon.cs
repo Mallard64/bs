@@ -31,6 +31,31 @@ public class Weapon : NetworkBehaviour
 
     public bool isSpecial;
 
+    void Awake()
+    {
+        // Set special flag for multi-mode weapons
+        isSpecial = (id == 2 || id >= 4); // Sword and all new weapons are special
+        
+        // Set max swaps based on weapon type
+        switch (id)
+        {
+            case 2: // Sword
+            case 4: // Elemental Staff
+            case 5: // Morph Cannon
+            case 6: // Spirit Bow
+            case 7: // War Hammer
+            case 8: // Plasma Rifle
+            case 9: // Ninja Kunai
+            case 10: // Chaos Orb
+                maxSwaps = 3;
+                break;
+            default:
+                maxSwaps = 1;
+                isSpecial = false;
+                break;
+        }
+    }
+
     // Sound components
     public AudioSource audioSource;
     public AudioClip shootSound;
@@ -171,16 +196,83 @@ public class Weapon : NetworkBehaviour
         mouseShooting.bulletSpeed = bulletSpeed;
         mouseShooting.bulletLifetime = bulletLifetime;
 
-        // Update shot cooldown based on weapon mode for sword weapons
+        // Update shot cooldown based on weapon mode for multi-mode weapons
         mouseShooting.shotCooldownTime = end + startup + shot;
-        if (id == 2) // Sword weapon
+        
+        // Weapon-specific cooldowns and properties
+        switch (id)
         {
-            switch (mouseShooting.swapModeNum)
-            {
-                case 0: mouseShooting.shotCooldownTime = 0.3f; break;
-                case 1: mouseShooting.shotCooldownTime = 0.6f; break;
-                case 2: mouseShooting.shotCooldownTime = 1.2f; break;
-            }
+            case 2: // Sword weapon
+                switch (mouseShooting.swapModeNum)
+                {
+                    case 0: mouseShooting.shotCooldownTime = 0.3f; break;
+                    case 1: mouseShooting.shotCooldownTime = 0.6f; break;
+                    case 2: mouseShooting.shotCooldownTime = 1.2f; break;
+                }
+                break;
+
+            case 4: // Elemental Staff
+                switch (mouseShooting.swapModeNum)
+                {
+                    case 0: mouseShooting.shotCooldownTime = 0.4f; break; // Fire - fast
+                    case 1: mouseShooting.shotCooldownTime = 0.8f; break; // Ice - medium
+                    case 2: mouseShooting.shotCooldownTime = 1.5f; break; // Lightning - slow, high damage
+                }
+                break;
+
+            case 5: // Morph Cannon
+                switch (mouseShooting.swapModeNum)
+                {
+                    case 0: mouseShooting.shotCooldownTime = 1.0f; break; // Rocket
+                    case 1: mouseShooting.shotCooldownTime = 2.0f; break; // Beam - high energy cost
+                    case 2: mouseShooting.shotCooldownTime = 1.8f; break; // Grenade - explosive
+                }
+                break;
+
+            case 6: // Spirit Bow
+                switch (mouseShooting.swapModeNum)
+                {
+                    case 0: mouseShooting.shotCooldownTime = 0.7f; break; // Piercing
+                    case 1: mouseShooting.shotCooldownTime = 1.2f; break; // Explosive
+                    case 2: mouseShooting.shotCooldownTime = 1.5f; break; // Homing - energy intensive
+                }
+                break;
+
+            case 7: // War Hammer
+                switch (mouseShooting.swapModeNum)
+                {
+                    case 0: mouseShooting.shotCooldownTime = 0.8f; break; // Slam
+                    case 1: mouseShooting.shotCooldownTime = 2.2f; break; // Throw - recovery time
+                    case 2: mouseShooting.shotCooldownTime = 1.5f; break; // Spin - exhausting
+                }
+                break;
+
+            case 8: // Plasma Rifle
+                switch (mouseShooting.swapModeNum)
+                {
+                    case 0: mouseShooting.shotCooldownTime = 0.9f; break; // Burst
+                    case 1: mouseShooting.shotCooldownTime = 2.5f; break; // Charge - long charge time
+                    case 2: mouseShooting.shotCooldownTime = 1.8f; break; // Overload - heat buildup
+                }
+                break;
+
+            case 9: // Ninja Kunai
+                switch (mouseShooting.swapModeNum)
+                {
+                    case 0: mouseShooting.shotCooldownTime = 0.5f; break; // Shadow - quick
+                    case 1: mouseShooting.shotCooldownTime = 0.8f; break; // Poison
+                    case 2: mouseShooting.shotCooldownTime = 2.0f; break; // Teleport - high energy
+                }
+                break;
+
+            case 10: // Chaos Orb
+                switch (mouseShooting.swapModeNum)
+                {
+                    case 0: mouseShooting.shotCooldownTime = 1.0f; break; // Random
+                    case 1: mouseShooting.shotCooldownTime = 3.0f; break; // Portal - very high cost
+                    case 2: mouseShooting.shotCooldownTime = 2.5f; break; // Gravity - high energy
+                }
+                break;
         }
 
         // Sync weapon net ID with parent's MouseShooting
@@ -192,26 +284,34 @@ public class Weapon : NetworkBehaviour
         // Handle ammo sync - only server should modify ammo values
         if (isServer)
         {
-            if (id == 2 && mouseShooting.swapModeNum == 2) // Sword throw mode
+            // Special ammo handling for different weapon modes
+            bool usesAmmo = true;
+            
+            switch (id)
+            {
+                case 2: // Sword weapon - only throw mode uses ammo
+                    usesAmmo = (mouseShooting.swapModeNum == 2);
+                    break;
+                case 7: // War Hammer - only throw mode uses ammo
+                    usesAmmo = (mouseShooting.swapModeNum == 1);
+                    break;
+                default:
+                    usesAmmo = true;
+                    break;
+            }
+            
+            if (usesAmmo)
             {
                 if (maxAmmo != mouseShooting.maxAmmo)
                 {
                     mouseShooting.maxAmmo = maxAmmo;
                     mouseShooting.currentAmmo = maxAmmo;
                 }
-            }
-            else if (id == 2) // Other sword modes don't consume ammo
-            {
-                mouseShooting.maxAmmo = 999;
-                mouseShooting.currentAmmo = 999;
             }
             else
             {
-                if (maxAmmo != mouseShooting.maxAmmo)
-                {
-                    mouseShooting.maxAmmo = maxAmmo;
-                    mouseShooting.currentAmmo = maxAmmo;
-                }
+                mouseShooting.maxAmmo = 999;
+                mouseShooting.currentAmmo = 999;
             }
         }
     }

@@ -395,12 +395,26 @@ public class MouseShooting : NetworkBehaviour
     {
         if (!isLocalPlayer) return;
 
-        // Only consume ammo for certain weapon modes
+        // Handle ammo consumption based on weapon type and mode
         if (weaponNetId != 0 && NetworkClient.spawned.TryGetValue(weaponNetId, out var weaponNi))
         {
             var weapon = weaponNi.GetComponent<Weapon>();
-            // Only consume ammo for throw mode on sword (id=2, mode=2) or non-sword weapons
-            if (weapon.id != 2 || (weapon.id == 2 && swapModeNum == 2))
+            bool consumeAmmo = true;
+            
+            switch (weapon.id)
+            {
+                case 2: // Sword - only throw mode consumes ammo
+                    consumeAmmo = (swapModeNum == 2);
+                    break;
+                case 7: // War Hammer - only throw mode consumes ammo
+                    consumeAmmo = (swapModeNum == 1);
+                    break;
+                default:
+                    consumeAmmo = true;
+                    break;
+            }
+            
+            if (consumeAmmo)
             {
                 currentAmmo--;
             }
@@ -415,12 +429,26 @@ public class MouseShooting : NetworkBehaviour
     {
         if (!isLocalPlayer) return;
 
-        // Only consume ammo for certain weapon modes
+        // Handle ammo consumption based on weapon type and mode
         if (weaponNetId != 0 && NetworkClient.spawned.TryGetValue(weaponNetId, out var weaponNi))
         {
             var weapon = weaponNi.GetComponent<Weapon>();
-            // Only consume ammo for throw mode on sword (id=2, mode=2) or non-sword weapons
-            if (weapon.id != 2 || (weapon.id == 2 && swapModeNum == 2))
+            bool consumeAmmo = true;
+            
+            switch (weapon.id)
+            {
+                case 2: // Sword - only throw mode consumes ammo
+                    consumeAmmo = (swapModeNum == 2);
+                    break;
+                case 7: // War Hammer - only throw mode consumes ammo
+                    consumeAmmo = (swapModeNum == 1);
+                    break;
+                default:
+                    consumeAmmo = true;
+                    break;
+            }
+            
+            if (consumeAmmo)
             {
                 currentAmmo--;
             }
@@ -466,6 +494,30 @@ public class MouseShooting : NetworkBehaviour
                 break;
             case 2:
                 ShootKnife(direction);
+                break;
+            case 3:
+                ShootAR(direction);
+                break;
+            case 4:
+                ShootElementalStaff(direction);
+                break;
+            case 5:
+                ShootMorphCannon(direction);
+                break;
+            case 6:
+                ShootSpiritBow(direction);
+                break;
+            case 7:
+                ShootWarHammer(direction);
+                break;
+            case 8:
+                ShootPlasmaRifle(direction);
+                break;
+            case 9:
+                ShootNinjaKunai(direction);
+                break;
+            case 10:
+                ShootChaosOrb(direction);
                 break;
             default:
                 ShootAR(direction);
@@ -605,6 +657,491 @@ public class MouseShooting : NetworkBehaviour
                 thrownSword.GetComponent<Bullet>().parent = gameObject;
                 NetworkServer.Spawn(thrownSword);
                 Destroy(thrownSword, bulletLifetime * 1.2f);
+                break;
+        }
+    }
+
+    // ===== NEW MULTI-MODE WEAPONS =====
+
+    private void ShootElementalStaff(Vector3 direction)
+    {
+        // Elemental Staff - Fire/Ice/Lightning modes inspired by Brawl Stars
+        switch (swapModeNum)
+        {
+            case 0: // Fire Mode - Fast, burning DOT projectile
+                Vector3 firePos = firePoint.position + direction.normalized * 0.6f;
+                GameObject fireBolt = Instantiate(bulletPrefabs[0], firePos, Quaternion.identity);
+                
+                float fireAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+                fireBolt.transform.rotation = Quaternion.Euler(0, 0, fireAngle);
+                
+                var fireRb = fireBolt.GetComponent<Rigidbody2D>();
+                fireRb.velocity = direction.normalized * (bulletSpeed * 1.2f);
+                
+                fireBolt.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+                // Add fire damage over time property
+                if (fireBolt.GetComponent<Bullet>() != null)
+                {
+                    fireBolt.GetComponent<Bullet>().damage = 15f; // Lower direct damage but adds burn
+                }
+                
+                NetworkServer.Spawn(fireBolt);
+                Destroy(fireBolt, bulletLifetime * 0.8f);
+                break;
+
+            case 1: // Ice Mode - Slowing projectile with area effect
+                Vector3 icePos = firePoint.position + direction.normalized * 0.6f;
+                GameObject iceShard = Instantiate(bulletPrefabs[1], icePos, Quaternion.identity);
+                
+                float iceAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+                iceShard.transform.rotation = Quaternion.Euler(0, 0, iceAngle);
+                
+                var iceRb = iceShard.GetComponent<Rigidbody2D>();
+                iceRb.velocity = direction.normalized * (bulletSpeed * 0.9f);
+                
+                iceShard.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+                if (iceShard.GetComponent<Bullet>() != null)
+                {
+                    iceShard.GetComponent<Bullet>().damage = 20f; // Medium damage + slow
+                }
+                
+                NetworkServer.Spawn(iceShard);
+                Destroy(iceShard, bulletLifetime);
+                break;
+
+            case 2: // Lightning Mode - Chain lightning effect
+                Vector3 lightningPos = firePoint.position + direction.normalized * 0.4f;
+                GameObject lightning = Instantiate(bulletPrefabs[2], lightningPos, Quaternion.identity);
+                
+                float lightningAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+                lightning.transform.rotation = Quaternion.Euler(0, 0, lightningAngle);
+                
+                var lightningRb = lightning.GetComponent<Rigidbody2D>();
+                lightningRb.velocity = direction.normalized * (bulletSpeed * 1.5f);
+                
+                lightning.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+                if (lightning.GetComponent<Bullet>() != null)
+                {
+                    lightning.GetComponent<Bullet>().damage = 35f; // High damage, can chain
+                }
+                
+                NetworkServer.Spawn(lightning);
+                Destroy(lightning, bulletLifetime * 0.6f);
+                break;
+        }
+    }
+
+    private void ShootMorphCannon(Vector3 direction)
+    {
+        // Morph Cannon - Rocket/Beam/Grenade modes inspired by Smash Bros items
+        switch (swapModeNum)
+        {
+            case 0: // Rocket Mode - Fast seeking projectile
+                Vector3 rocketPos = firePoint.position + direction.normalized * 0.8f;
+                GameObject rocket = Instantiate(bulletPrefabs[0], rocketPos, Quaternion.identity);
+                
+                float rocketAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+                rocket.transform.rotation = Quaternion.Euler(0, 0, rocketAngle);
+                
+                var rocketRb = rocket.GetComponent<Rigidbody2D>();
+                rocketRb.velocity = direction.normalized * (bulletSpeed * 1.3f);
+                
+                rocket.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+                if (rocket.GetComponent<Bullet>() != null)
+                {
+                    rocket.GetComponent<Bullet>().damage = 40f;
+                }
+                
+                NetworkServer.Spawn(rocket);
+                Destroy(rocket, bulletLifetime);
+                break;
+
+            case 1: // Beam Mode - Continuous laser
+                for (int i = 1; i <= 8; i++)
+                {
+                    Vector3 beamPos = firePoint.position + (direction.normalized * i * 0.5f);
+                    GameObject beamSegment = Instantiate(bulletPrefabs[2], beamPos, Quaternion.identity);
+                    
+                    float beamAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+                    beamSegment.transform.rotation = Quaternion.Euler(0, 0, beamAngle);
+                    
+                    beamSegment.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+                    if (beamSegment.GetComponent<Bullet>() != null)
+                    {
+                        beamSegment.GetComponent<Bullet>().damage = 8f; // Lower per-segment damage
+                    }
+                    
+                    NetworkServer.Spawn(beamSegment);
+                    Destroy(beamSegment, 0.3f);
+                }
+                break;
+
+            case 2: // Grenade Mode - Bouncing explosive
+                Vector3 grenadePos = firePoint.position + direction.normalized * 0.6f;
+                GameObject grenade = Instantiate(bulletPrefabs[1], grenadePos, Quaternion.identity);
+                
+                float grenadeAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+                grenade.transform.rotation = Quaternion.Euler(0, 0, grenadeAngle);
+                
+                var grenadeRb = grenade.GetComponent<Rigidbody2D>();
+                grenadeRb.velocity = direction.normalized * (bulletSpeed * 0.7f);
+                
+                grenade.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+                if (grenade.GetComponent<Bullet>() != null)
+                {
+                    grenade.GetComponent<Bullet>().damage = 45f; // High damage, area effect
+                }
+                
+                NetworkServer.Spawn(grenade);
+                Destroy(grenade, bulletLifetime * 1.5f);
+                break;
+        }
+    }
+
+    private void ShootSpiritBow(Vector3 direction)
+    {
+        // Spirit Bow - Piercing/Explosive/Homing modes
+        switch (swapModeNum)
+        {
+            case 0: // Piercing Mode - Arrow goes through enemies
+                Vector3 piercePos = firePoint.position + direction.normalized * 0.6f;
+                GameObject pierceArrow = Instantiate(bulletPrefabs[0], piercePos, Quaternion.identity);
+                
+                float pierceAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+                pierceArrow.transform.rotation = Quaternion.Euler(0, 0, pierceAngle);
+                
+                var pierceRb = pierceArrow.GetComponent<Rigidbody2D>();
+                pierceRb.velocity = direction.normalized * (bulletSpeed * 1.4f);
+                
+                pierceArrow.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+                if (pierceArrow.GetComponent<Bullet>() != null)
+                {
+                    pierceArrow.GetComponent<Bullet>().damage = 25f;
+                }
+                
+                NetworkServer.Spawn(pierceArrow);
+                Destroy(pierceArrow, bulletLifetime * 1.2f);
+                break;
+
+            case 1: // Explosive Mode - Arrow explodes on impact
+                Vector3 explosivePos = firePoint.position + direction.normalized * 0.6f;
+                GameObject explosiveArrow = Instantiate(bulletPrefabs[1], explosivePos, Quaternion.identity);
+                
+                float explosiveAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+                explosiveArrow.transform.rotation = Quaternion.Euler(0, 0, explosiveAngle);
+                
+                var explosiveRb = explosiveArrow.GetComponent<Rigidbody2D>();
+                explosiveRb.velocity = direction.normalized * bulletSpeed;
+                
+                explosiveArrow.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+                if (explosiveArrow.GetComponent<Bullet>() != null)
+                {
+                    explosiveArrow.GetComponent<Bullet>().damage = 35f;
+                }
+                
+                NetworkServer.Spawn(explosiveArrow);
+                Destroy(explosiveArrow, bulletLifetime);
+                break;
+
+            case 2: // Homing Mode - Arrow seeks nearest enemy
+                Vector3 homingPos = firePoint.position + direction.normalized * 0.6f;
+                GameObject homingArrow = Instantiate(bulletPrefabs[2], homingPos, Quaternion.identity);
+                
+                float homingAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+                homingArrow.transform.rotation = Quaternion.Euler(0, 0, homingAngle);
+                
+                var homingRb = homingArrow.GetComponent<Rigidbody2D>();
+                homingRb.velocity = direction.normalized * (bulletSpeed * 0.9f);
+                
+                homingArrow.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+                if (homingArrow.GetComponent<Bullet>() != null)
+                {
+                    homingArrow.GetComponent<Bullet>().damage = 30f;
+                }
+                
+                NetworkServer.Spawn(homingArrow);
+                Destroy(homingArrow, bulletLifetime * 2f);
+                break;
+        }
+    }
+
+    private void ShootWarHammer(Vector3 direction)
+    {
+        // War Hammer - Slam/Throw/Spin modes inspired by Smash Bros
+        switch (swapModeNum)
+        {
+            case 0: // Slam Mode - Close range shockwave
+                for (int i = -2; i <= 2; i++)
+                {
+                    float slamAngle = i * 30f;
+                    Vector3 slamDir = Quaternion.Euler(0, 0, slamAngle) * direction;
+                    Vector3 slamPos = firePoint.position + slamDir.normalized * (0.5f + Mathf.Abs(i) * 0.3f);
+                    
+                    GameObject shockwave = Instantiate(bulletPrefabs[2], slamPos, Quaternion.identity);
+                    float shockAngle = Mathf.Atan2(slamDir.y, slamDir.x) * Mathf.Rad2Deg;
+                    shockwave.transform.rotation = Quaternion.Euler(0, 0, shockAngle);
+                    
+                    shockwave.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+                    if (shockwave.GetComponent<Bullet>() != null)
+                    {
+                        shockwave.GetComponent<Bullet>().damage = 30f;
+                    }
+                    
+                    NetworkServer.Spawn(shockwave);
+                    Destroy(shockwave, 0.2f);
+                }
+                break;
+
+            case 1: // Throw Mode - Boomerang effect
+                Vector3 throwPos = firePoint.position + direction.normalized * 0.7f;
+                GameObject thrownHammer = Instantiate(bulletPrefabs[1], throwPos, Quaternion.identity);
+                
+                float throwAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+                thrownHammer.transform.rotation = Quaternion.Euler(0, 0, throwAngle);
+                
+                var throwRb = thrownHammer.GetComponent<Rigidbody2D>();
+                throwRb.velocity = direction.normalized * (bulletSpeed * 1.1f);
+                throwRb.angularVelocity = 540f; // Fast spinning
+                
+                thrownHammer.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+                if (thrownHammer.GetComponent<Bullet>() != null)
+                {
+                    thrownHammer.GetComponent<Bullet>().damage = 40f;
+                }
+                
+                NetworkServer.Spawn(thrownHammer);
+                Destroy(thrownHammer, bulletLifetime * 1.3f);
+                break;
+
+            case 2: // Spin Mode - 360 degree attack
+                for (int i = 0; i < 12; i++)
+                {
+                    float spinAngle = i * 30f;
+                    Vector3 spinDir = Quaternion.Euler(0, 0, spinAngle) * Vector3.right;
+                    Vector3 spinPos = firePoint.position + spinDir * 0.8f;
+                    
+                    GameObject spinHitbox = Instantiate(bulletPrefabs[2], spinPos, Quaternion.identity);
+                    spinHitbox.transform.rotation = Quaternion.Euler(0, 0, spinAngle);
+                    
+                    spinHitbox.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+                    if (spinHitbox.GetComponent<Bullet>() != null)
+                    {
+                        spinHitbox.GetComponent<Bullet>().damage = 20f;
+                    }
+                    
+                    NetworkServer.Spawn(spinHitbox);
+                    Destroy(spinHitbox, 0.15f);
+                }
+                break;
+        }
+    }
+
+    private void ShootPlasmaRifle(Vector3 direction)
+    {
+        // Plasma Rifle - Burst/Charge/Overload modes
+        switch (swapModeNum)
+        {
+            case 0: // Burst Mode - 3-shot burst
+                for (int i = 0; i < 3; i++)
+                {
+                    StartCoroutine(DelayedPlasmaShot(direction, i * 0.1f, 15f));
+                }
+                break;
+
+            case 1: // Charge Mode - Single powerful shot
+                Vector3 chargePos = firePoint.position + direction.normalized * 0.8f;
+                GameObject chargeShot = Instantiate(bulletPrefabs[0], chargePos, Quaternion.identity);
+                
+                float chargeAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+                chargeShot.transform.rotation = Quaternion.Euler(0, 0, chargeAngle);
+                
+                var chargeRb = chargeShot.GetComponent<Rigidbody2D>();
+                chargeRb.velocity = direction.normalized * (bulletSpeed * 0.8f);
+                
+                chargeShot.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+                if (chargeShot.GetComponent<Bullet>() != null)
+                {
+                    chargeShot.GetComponent<Bullet>().damage = 60f; // Very high damage
+                }
+                
+                NetworkServer.Spawn(chargeShot);
+                Destroy(chargeShot, bulletLifetime);
+                break;
+
+            case 2: // Overload Mode - Spread shot with self-damage risk
+                for (int i = -4; i <= 4; i++)
+                {
+                    float overloadAngle = i * 10f;
+                    Vector3 overloadDir = Quaternion.Euler(0, 0, overloadAngle) * direction;
+                    
+                    Vector3 overloadPos = firePoint.position + overloadDir.normalized * 0.6f;
+                    GameObject overloadShot = Instantiate(bulletPrefabs[1], overloadPos, Quaternion.identity);
+                    
+                    var overloadRb = overloadShot.GetComponent<Rigidbody2D>();
+                    overloadRb.velocity = overloadDir.normalized * (bulletSpeed * 1.2f);
+                    
+                    overloadShot.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+                    if (overloadShot.GetComponent<Bullet>() != null)
+                    {
+                        overloadShot.GetComponent<Bullet>().damage = 18f;
+                    }
+                    
+                    NetworkServer.Spawn(overloadShot);
+                    Destroy(overloadShot, bulletLifetime * 0.7f);
+                }
+                break;
+        }
+    }
+
+    private IEnumerator DelayedPlasmaShot(Vector3 direction, float delay, float damage)
+    {
+        yield return new WaitForSeconds(delay);
+        
+        Vector3 burstPos = firePoint.position + direction.normalized * 0.6f;
+        GameObject burstShot = Instantiate(bulletPrefabs[0], burstPos, Quaternion.identity);
+        
+        float burstAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+        burstShot.transform.rotation = Quaternion.Euler(0, 0, burstAngle);
+        
+        var burstRb = burstShot.GetComponent<Rigidbody2D>();
+        burstRb.velocity = direction.normalized * bulletSpeed;
+        
+        burstShot.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+        if (burstShot.GetComponent<Bullet>() != null)
+        {
+            burstShot.GetComponent<Bullet>().damage = damage;
+        }
+        
+        NetworkServer.Spawn(burstShot);
+        Destroy(burstShot, bulletLifetime);
+    }
+
+    private void ShootNinjaKunai(Vector3 direction)
+    {
+        // Ninja Kunai - Shadow/Poison/Teleport modes
+        switch (swapModeNum)
+        {
+            case 0: // Shadow Mode - Multiple kunai from different angles
+                for (int i = -1; i <= 1; i++)
+                {
+                    float shadowAngle = i * 15f;
+                    Vector3 shadowDir = Quaternion.Euler(0, 0, shadowAngle) * direction;
+                    
+                    Vector3 shadowPos = firePoint.position + shadowDir.normalized * 0.5f;
+                    GameObject shadowKunai = Instantiate(bulletPrefabs[2], shadowPos, Quaternion.identity);
+                    
+                    float kunaiAngle = Mathf.Atan2(shadowDir.y, shadowDir.x) * Mathf.Rad2Deg;
+                    shadowKunai.transform.rotation = Quaternion.Euler(0, 0, kunaiAngle);
+                    
+                    var shadowRb = shadowKunai.GetComponent<Rigidbody2D>();
+                    shadowRb.velocity = shadowDir.normalized * (bulletSpeed * 1.3f);
+                    
+                    shadowKunai.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+                    if (shadowKunai.GetComponent<Bullet>() != null)
+                    {
+                        shadowKunai.GetComponent<Bullet>().damage = 20f;
+                    }
+                    
+                    NetworkServer.Spawn(shadowKunai);
+                    Destroy(shadowKunai, bulletLifetime);
+                }
+                break;
+
+            case 1: // Poison Mode - DoT kunai
+                Vector3 poisonPos = firePoint.position + direction.normalized * 0.5f;
+                GameObject poisonKunai = Instantiate(bulletPrefabs[2], poisonPos, Quaternion.identity);
+                
+                float poisonAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+                poisonKunai.transform.rotation = Quaternion.Euler(0, 0, poisonAngle);
+                
+                var poisonRb = poisonKunai.GetComponent<Rigidbody2D>();
+                poisonRb.velocity = direction.normalized * bulletSpeed;
+                
+                poisonKunai.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+                if (poisonKunai.GetComponent<Bullet>() != null)
+                {
+                    poisonKunai.GetComponent<Bullet>().damage = 15f; // Lower direct damage, poison effect
+                }
+                
+                NetworkServer.Spawn(poisonKunai);
+                Destroy(poisonKunai, bulletLifetime);
+                break;
+
+            case 2: // Teleport Mode - Instant hit at target location
+                Vector3 teleportTarget = firePoint.position + direction.normalized * 4f;
+                GameObject teleportKunai = Instantiate(bulletPrefabs[2], teleportTarget, Quaternion.identity);
+                
+                float teleportAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+                teleportKunai.transform.rotation = Quaternion.Euler(0, 0, teleportAngle);
+                
+                teleportKunai.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+                if (teleportKunai.GetComponent<Bullet>() != null)
+                {
+                    teleportKunai.GetComponent<Bullet>().damage = 35f;
+                }
+                
+                NetworkServer.Spawn(teleportKunai);
+                Destroy(teleportKunai, 0.1f);
+                break;
+        }
+    }
+
+    private void ShootChaosOrb(Vector3 direction)
+    {
+        // Chaos Orb - Random/Portal/Gravity modes
+        switch (swapModeNum)
+        {
+            case 0: // Random Mode - Unpredictable bouncing orb
+                Vector3 randomPos = firePoint.position + direction.normalized * 0.6f;
+                GameObject chaosOrb = Instantiate(bulletPrefabs[1], randomPos, Quaternion.identity);
+                
+                // Add random deviation to direction
+                float randomAngle = UnityEngine.Random.Range(-30f, 30f);
+                Vector3 chaosDir = Quaternion.Euler(0, 0, randomAngle) * direction;
+                
+                float orbAngle = Mathf.Atan2(chaosDir.y, chaosDir.x) * Mathf.Rad2Deg;
+                chaosOrb.transform.rotation = Quaternion.Euler(0, 0, orbAngle);
+                
+                var chaosRb = chaosOrb.GetComponent<Rigidbody2D>();
+                chaosRb.velocity = chaosDir.normalized * (bulletSpeed * UnityEngine.Random.Range(0.8f, 1.4f));
+                chaosRb.angularVelocity = UnityEngine.Random.Range(-360f, 360f);
+                
+                chaosOrb.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+                if (chaosOrb.GetComponent<Bullet>() != null)
+                {
+                    chaosOrb.GetComponent<Bullet>().damage = UnityEngine.Random.Range(20f, 45f);
+                }
+                
+                NetworkServer.Spawn(chaosOrb);
+                Destroy(chaosOrb, bulletLifetime * UnityEngine.Random.Range(0.8f, 1.5f));
+                break;
+
+            case 1: // Portal Mode - Creates temporary portal
+                Vector3 portalPos = firePoint.position + direction.normalized * 3f;
+                GameObject portal = Instantiate(bulletPrefabs[2], portalPos, Quaternion.identity);
+                
+                portal.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+                if (portal.GetComponent<Bullet>() != null)
+                {
+                    portal.GetComponent<Bullet>().damage = 25f;
+                }
+                
+                NetworkServer.Spawn(portal);
+                Destroy(portal, 2f); // Portal lasts 2 seconds
+                break;
+
+            case 2: // Gravity Mode - Pulls enemies toward center
+                Vector3 gravityPos = firePoint.position + direction.normalized * 2f;
+                GameObject gravityOrb = Instantiate(bulletPrefabs[1], gravityPos, Quaternion.identity);
+                
+                gravityOrb.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+                if (gravityOrb.GetComponent<Bullet>() != null)
+                {
+                    gravityOrb.GetComponent<Bullet>().damage = 30f;
+                }
+                
+                NetworkServer.Spawn(gravityOrb);
+                Destroy(gravityOrb, 3f); // Gravity effect lasts 3 seconds
                 break;
         }
     }
