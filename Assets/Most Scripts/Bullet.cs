@@ -9,7 +9,10 @@ public enum BulletEffectType
     BurnDamage,
     SlowEffect,
     FreezeEffect,
-    LightningBolt
+    LightningBolt,
+    ExplosionDamage,
+    PoisonDamage,
+    GravityPull
 }
 
 public class Bullet : NetworkBehaviour
@@ -314,6 +317,15 @@ public class Bullet : NetworkBehaviour
             case BulletEffectType.LightningBolt:
                 ApplyLightningEffect(target, hitPosition);
                 break;
+            case BulletEffectType.ExplosionDamage:
+                ApplyExplosionEffect(hitPosition);
+                break;
+            case BulletEffectType.PoisonDamage:
+                ApplyPoisonEffect(target);
+                break;
+            case BulletEffectType.GravityPull:
+                ApplyGravityEffect(target, hitPosition);
+                break;
         }
     }
     
@@ -413,7 +425,6 @@ public class Bullet : NetworkBehaviour
         LineRenderer lr = lightningLine.AddComponent<LineRenderer>();
         
         lr.material = new Material(Shader.Find("Sprites/Default"));
-        lr.color = Color.cyan;
         lr.startWidth = 0.1f;
         lr.endWidth = 0.05f;
         lr.positionCount = 2;
@@ -433,6 +444,129 @@ public class Bullet : NetworkBehaviour
         if (lightning != null)
         {
             Destroy(lightning);
+        }
+    }
+    
+    void ApplyExplosionEffect(Vector3 position)
+    {
+        // Create explosion that damages all nearby enemies
+        Collider2D[] targets = Physics2D.OverlapCircleAll(position, lightningRange);
+        
+        foreach (var collider in targets)
+        {
+            var enemy = collider.GetComponent<Enemy>();
+            var actualEnemy = collider.GetComponent<ActualEnemy>();
+            
+            bool shouldHit = false;
+            
+            if (!shotByEnemy && enemy != null && enemy.connectionToClient != null && 
+                !enemy.isEnemy && shooterId != enemy.connectionId)
+            {
+                shouldHit = true;
+                enemy.TakeDamage((int)effectDamage);
+            }
+            else if (!shotByEnemy && actualEnemy != null && actualEnemy.isEnemy)
+            {
+                shouldHit = true;
+                actualEnemy.TakeDamage((int)effectDamage);
+            }
+            else if (shotByEnemy && enemy != null && enemy.connectionToClient != null && !enemy.isEnemy)
+            {
+                shouldHit = true;
+                enemy.TakeDamage((int)effectDamage);
+            }
+            
+            if (shouldHit)
+            {
+                // Apply knockback from explosion
+                var targetRb = collider.GetComponent<Rigidbody2D>();
+                if (targetRb != null)
+                {
+                    Vector2 forceDirection = (collider.transform.position - position).normalized;
+                    targetRb.AddForce(forceDirection * 300f, ForceMode2D.Impulse);
+                }
+            }
+        }
+        
+        // Spawn explosion visual effect
+        SpawnExplosionVisual(position);
+    }
+    
+    void ApplyPoisonEffect(GameObject target)
+    {
+        var burnEffect = target.GetComponent<BurnEffect>();
+        if (burnEffect == null)
+        {
+            burnEffect = target.AddComponent<BurnEffect>();
+        }
+        // Reuse burn effect for poison with different parameters
+        burnEffect.ApplyBurn(effectDamage, effectDuration, 1.5f); // Slower ticks for poison
+    }
+    
+    void ApplyGravityEffect(GameObject target, Vector3 position)
+    {
+        var targetRb = target.GetComponent<Rigidbody2D>();
+        if (targetRb != null)
+        {
+            // Apply continuous pull toward gravity center
+            StartCoroutine(GravityPullRoutine(targetRb, position, effectDuration));
+        }
+    }
+    
+    [ClientRpc]
+    void SpawnExplosionVisual(Vector3 position)
+    {
+        // Create simple explosion effect with expanding circle
+        GameObject explosion = new GameObject("Explosion");
+        explosion.transform.position = position;
+        
+        var renderer = explosion.AddComponent<SpriteRenderer>();
+        renderer.color = new Color(1f, 0.5f, 0f, 0.8f); // Orange explosion color
+        renderer.sortingOrder = 10;
+        
+        StartCoroutine(AnimateExplosion(explosion));
+    }
+    
+    IEnumerator AnimateExplosion(GameObject explosion)
+    {
+        float duration = 0.3f;
+        float elapsed = 0f;
+        Vector3 startScale = Vector3.zero;
+        Vector3 endScale = Vector3.one * 3f;
+        
+        var renderer = explosion.GetComponent<SpriteRenderer>();
+        
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / duration;
+            
+            explosion.transform.localScale = Vector3.Lerp(startScale, endScale, t);
+            
+            if (renderer != null)
+            {
+                Color color = renderer.color;
+                color.a = 1f - t;
+                renderer.color = color;
+            }
+            
+            yield return null;
+        }
+        
+        Destroy(explosion);
+    }
+    
+    IEnumerator GravityPullRoutine(Rigidbody2D targetRb, Vector3 gravityCenter, float duration)
+    {
+        float elapsed = 0f;
+        
+        while (elapsed < duration && targetRb != null)
+        {
+            Vector3 pullDirection = (gravityCenter - targetRb.transform.position).normalized;
+            targetRb.AddForce(pullDirection * 100f * Time.fixedDeltaTime);
+            
+            elapsed += Time.fixedDeltaTime;
+            yield return new WaitForFixedUpdate();
         }
     }
 }

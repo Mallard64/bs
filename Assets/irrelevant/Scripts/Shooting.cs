@@ -533,6 +533,30 @@ public class MouseShooting : NetworkBehaviour
             case 10:
                 ShootChaosOrb(direction);
                 break;
+            case 11:
+                ShootLightningGun(direction);
+                break;
+            case 12:
+                ShootRocketLauncher(direction);
+                break;
+            case 13:
+                ShootFlameThrower(direction);
+                break;
+            case 14:
+                ShootIceBeam(direction);
+                break;
+            case 15:
+                ShootBoomerang(direction);
+                break;
+            case 16:
+                ShootLaserCannon(direction);
+                break;
+            case 17:
+                ShootGravityGun(direction);
+                break;
+            case 18:
+                ShootVenomSpitter(direction);
+                break;
             default:
                 ShootAR(direction);
                 break;
@@ -1161,6 +1185,285 @@ public class MouseShooting : NetworkBehaviour
                 NetworkServer.Spawn(gravityOrb);
                 Destroy(gravityOrb, 3f); // Gravity effect lasts 3 seconds
                 break;
+        }
+    }
+
+    // ===== NEW UNIQUE WEAPONS =====
+
+    public void ShootLightningGun(Vector3 direction)
+    {
+        // Lightning Gun - Chain lightning that arcs between enemies
+        Vector3 lightningPos = firePoint.position + direction.normalized * 0.6f;
+        GameObject lightning = Instantiate(bulletPrefabs[0], lightningPos, Quaternion.identity);
+        
+        float lightningAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+        lightning.transform.rotation = Quaternion.Euler(0, 0, lightningAngle);
+        
+        var lightningRb = lightning.GetComponent<Rigidbody2D>();
+        lightningRb.velocity = direction.normalized * (bulletSpeed * 1.8f);
+        
+        var lightningBullet = lightning.GetComponent<Bullet>();
+        lightningBullet.shooterId = GetComponent<Enemy>().connectionId;
+        lightningBullet.damage = 30f;
+        lightningBullet.effectType = BulletEffectType.LightningBolt;
+        lightningBullet.effectDamage = 20f; // Chain damage
+        lightningBullet.lightningRange = 4f; // Chain range
+        lightningBullet.lightningTargets = 5; // Max chain targets
+        
+        NetworkServer.Spawn(lightning);
+        Destroy(lightning, bulletLifetime * 0.7f);
+    }
+
+    public void ShootRocketLauncher(Vector3 direction)
+    {
+        // Rocket Launcher - Explosive projectile with area damage
+        Vector3 rocketPos = firePoint.position + direction.normalized * 0.8f;
+        GameObject rocket = Instantiate(bulletPrefabs[1], rocketPos, Quaternion.identity);
+        
+        float rocketAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+        rocket.transform.rotation = Quaternion.Euler(0, 0, rocketAngle);
+        
+        var rocketRb = rocket.GetComponent<Rigidbody2D>();
+        rocketRb.velocity = direction.normalized * (bulletSpeed * 0.9f);
+        
+        var rocketBullet = rocket.GetComponent<Bullet>();
+        rocketBullet.shooterId = GetComponent<Enemy>().connectionId;
+        rocketBullet.damage = 50f; // High direct damage
+        
+        // Create explosion effect on destruction
+        StartCoroutine(CreateExplosion(rocket, direction, 2f, 35f));
+        
+        NetworkServer.Spawn(rocket);
+        Destroy(rocket, bulletLifetime);
+    }
+
+    public void ShootFlameThrower(Vector3 direction)
+    {
+        // Flame Thrower - Continuous stream of fire with burn effect
+        int flames = 6;
+        for (int i = 0; i < flames; i++)
+        {
+            float flameDistance = (i + 1) * 0.4f;
+            Vector3 flamePos = firePoint.position + direction.normalized * flameDistance;
+            
+            // Add slight spread for realistic flame effect
+            float spreadAngle = UnityEngine.Random.Range(-8f, 8f);
+            Vector3 flameDir = Quaternion.Euler(0, 0, spreadAngle) * direction;
+            flamePos += new Vector3(UnityEngine.Random.Range(-0.2f, 0.2f), UnityEngine.Random.Range(-0.2f, 0.2f), 0);
+            
+            GameObject flame = Instantiate(bulletPrefabs[2], flamePos, Quaternion.identity);
+            
+            float flameAngle = Mathf.Atan2(flameDir.y, flameDir.x) * Mathf.Rad2Deg;
+            flame.transform.rotation = Quaternion.Euler(0, 0, flameAngle);
+            
+            var flameBullet = flame.GetComponent<Bullet>();
+            flameBullet.shooterId = GetComponent<Enemy>().connectionId;
+            flameBullet.damage = 12f; // Lower direct damage, DoT effect
+            flameBullet.effectType = BulletEffectType.BurnDamage;
+            flameBullet.effectDuration = 5f; // Long burn duration
+            flameBullet.effectDamage = 4f; // Burn damage per tick
+            
+            NetworkServer.Spawn(flame);
+            Destroy(flame, 0.4f); // Short lifetime for flame segments
+        }
+    }
+
+    public void ShootIceBeam(Vector3 direction)
+    {
+        // Ice Beam - Continuous beam that slows and freezes
+        for (int i = 1; i <= 10; i++)
+        {
+            Vector3 icePos = firePoint.position + (direction.normalized * i * 0.3f);
+            GameObject iceSegment = Instantiate(bulletPrefabs[2], icePos, Quaternion.identity);
+            
+            float iceAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+            iceSegment.transform.rotation = Quaternion.Euler(0, 0, iceAngle);
+            
+            var iceBullet = iceSegment.GetComponent<Bullet>();
+            iceBullet.shooterId = GetComponent<Enemy>().connectionId;
+            iceBullet.damage = 8f; // Low damage per segment
+            iceBullet.effectType = BulletEffectType.FreezeEffect;
+            iceBullet.effectDuration = 2f; // Freeze duration
+            
+            NetworkServer.Spawn(iceSegment);
+            Destroy(iceSegment, 0.5f);
+        }
+    }
+
+    public void ShootBoomerang(Vector3 direction)
+    {
+        // Boomerang - Returns to player after traveling
+        Vector3 boomerangPos = firePoint.position + direction.normalized * 0.6f;
+        GameObject boomerang = Instantiate(bulletPrefabs[1], boomerangPos, Quaternion.identity);
+        
+        float boomerangAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+        boomerang.transform.rotation = Quaternion.Euler(0, 0, boomerangAngle);
+        
+        var boomerangRb = boomerang.GetComponent<Rigidbody2D>();
+        boomerangRb.velocity = direction.normalized * bulletSpeed;
+        boomerangRb.angularVelocity = 720f; // Fast spinning
+        
+        var boomerangBullet = boomerang.GetComponent<Bullet>();
+        boomerangBullet.shooterId = GetComponent<Enemy>().connectionId;
+        boomerangBullet.damage = 25f;
+        
+        // Create return behavior
+        StartCoroutine(BoomerangReturn(boomerang, 1.5f));
+        
+        NetworkServer.Spawn(boomerang);
+        Destroy(boomerang, bulletLifetime * 2f); // Double lifetime for return trip
+    }
+
+    public void ShootLaserCannon(Vector3 direction)
+    {
+        // Laser Cannon - Piercing beam that goes through multiple enemies
+        for (int i = 1; i <= 15; i++)
+        {
+            Vector3 laserPos = firePoint.position + (direction.normalized * i * 0.4f);
+            GameObject laserSegment = Instantiate(bulletPrefabs[0], laserPos, Quaternion.identity);
+            
+            float laserAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+            laserSegment.transform.rotation = Quaternion.Euler(0, 0, laserAngle);
+            
+            var laserBullet = laserSegment.GetComponent<Bullet>();
+            laserBullet.shooterId = GetComponent<Enemy>().connectionId;
+            laserBullet.damage = 18f; // High damage, pierces through
+            
+            NetworkServer.Spawn(laserSegment);
+            Destroy(laserSegment, 0.2f);
+        }
+    }
+
+    public void ShootGravityGun(Vector3 direction)
+    {
+        // Gravity Gun - Creates gravity well that pulls enemies
+        Vector3 gravityPos = firePoint.position + direction.normalized * 3f;
+        GameObject gravityWell = Instantiate(bulletPrefabs[2], gravityPos, Quaternion.identity);
+        
+        var gravityBullet = gravityWell.GetComponent<Bullet>();
+        gravityBullet.shooterId = GetComponent<Enemy>().connectionId;
+        gravityBullet.damage = 15f; // Continuous damage
+        gravityBullet.effectType = BulletEffectType.SlowEffect;
+        gravityBullet.effectDuration = 4f; // Pull effect duration
+        gravityBullet.slowAmount = 0.3f; // Strong slow effect
+        
+        // Create pull effect for nearby enemies
+        StartCoroutine(GravityPullEffect(gravityWell, 4f));
+        
+        NetworkServer.Spawn(gravityWell);
+        Destroy(gravityWell, 4f); // Gravity well lasts 4 seconds
+    }
+
+    public void ShootVenomSpitter(Vector3 direction)
+    {
+        // Venom Spitter - Spreads poison in an arc
+        int venomGlobs = 5;
+        float maxSpread = 30f;
+        
+        for (int i = -2; i <= 2; i++)
+        {
+            float venomAngle = i * (maxSpread / 4f);
+            Vector3 venomDir = Quaternion.Euler(0, 0, venomAngle) * direction.normalized;
+            
+            Vector3 venomPos = firePoint.position + venomDir * 0.5f;
+            GameObject venomGlob = Instantiate(bulletPrefabs[1], venomPos, Quaternion.identity);
+            
+            var venomRb = venomGlob.GetComponent<Rigidbody2D>();
+            venomRb.velocity = venomDir * (bulletSpeed * 0.8f);
+            
+            var venomBullet = venomGlob.GetComponent<Bullet>();
+            venomBullet.shooterId = GetComponent<Enemy>().connectionId;
+            venomBullet.damage = 20f;
+            venomBullet.effectType = BulletEffectType.BurnDamage; // Reuse burn effect for poison
+            venomBullet.effectDuration = 6f; // Long poison duration
+            venomBullet.effectDamage = 3f; // Poison damage per tick
+            
+            NetworkServer.Spawn(venomGlob);
+            Destroy(venomGlob, bulletLifetime);
+        }
+    }
+
+    // Helper coroutines for special weapon effects
+    private IEnumerator CreateExplosion(GameObject rocket, Vector3 direction, float explosionRadius, float explosionDamage)
+    {
+        // Wait for rocket to be destroyed or hit something
+        while (rocket != null)
+        {
+            yield return new WaitForSeconds(0.1f);
+        }
+        
+        // Create explosion effect at last known position
+        Vector3 explosionPos = rocket?.transform.position ?? (firePoint.position + direction.normalized * 3f);
+        
+        // Find all entities in explosion radius
+        Collider2D[] targets = Physics2D.OverlapCircleAll(explosionPos, explosionRadius);
+        
+        foreach (var target in targets)
+        {
+            var enemy = target.GetComponent<Enemy>();
+            var actualEnemy = target.GetComponent<ActualEnemy>();
+            
+            if (enemy != null && !enemy.isEnemy && enemy.connectionId != GetComponent<Enemy>().connectionId)
+            {
+                enemy.TakeDamage((int)explosionDamage);
+            }
+            else if (actualEnemy != null && actualEnemy.isEnemy)
+            {
+                actualEnemy.TakeDamage((int)explosionDamage);
+            }
+        }
+    }
+
+    private IEnumerator BoomerangReturn(GameObject boomerang, float outwardTime)
+    {
+        yield return new WaitForSeconds(outwardTime);
+        
+        if (boomerang != null)
+        {
+            var rb = boomerang.GetComponent<Rigidbody2D>();
+            
+            // Reverse direction and increase speed for return
+            Vector3 returnDirection = (firePoint.position - boomerang.transform.position).normalized;
+            rb.velocity = returnDirection * (bulletSpeed * 1.5f);
+            rb.angularVelocity = -720f; // Reverse spin
+        }
+    }
+
+    private IEnumerator GravityPullEffect(GameObject gravityWell, float duration)
+    {
+        float elapsed = 0f;
+        
+        while (elapsed < duration && gravityWell != null)
+        {
+            // Find enemies within gravity range
+            Collider2D[] targets = Physics2D.OverlapCircleAll(gravityWell.transform.position, 3f);
+            
+            foreach (var target in targets)
+            {
+                var enemy = target.GetComponent<Enemy>();
+                var actualEnemy = target.GetComponent<ActualEnemy>();
+                var targetRb = target.GetComponent<Rigidbody2D>();
+                
+                if (targetRb != null)
+                {
+                    bool validTarget = false;
+                    
+                    if (enemy != null && !enemy.isEnemy && enemy.connectionId != GetComponent<Enemy>().connectionId)
+                        validTarget = true;
+                    else if (actualEnemy != null && actualEnemy.isEnemy)
+                        validTarget = true;
+                    
+                    if (validTarget)
+                    {
+                        // Apply gravity pull
+                        Vector3 pullDirection = (gravityWell.transform.position - target.transform.position).normalized;
+                        targetRb.AddForce(pullDirection * 150f * Time.fixedDeltaTime);
+                    }
+                }
+            }
+            
+            elapsed += Time.fixedDeltaTime;
+            yield return new WaitForFixedUpdate();
         }
     }
 

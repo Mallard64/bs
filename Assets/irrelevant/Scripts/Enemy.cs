@@ -8,6 +8,8 @@ public class Enemy : NetworkBehaviour
 {
     public bool isEnemy = false;
 
+    public bool isInvulnerable = false;
+
     [SyncVar]
     public float health;
 

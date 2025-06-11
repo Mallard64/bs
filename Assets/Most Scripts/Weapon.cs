@@ -34,12 +34,11 @@ public class Weapon : NetworkBehaviour
     void Awake()
     {
         // Set special flag for multi-mode weapons
-        isSpecial = (id == 2 || id >= 4); // Sword and all new weapons are special
+        isSpecial = (id >= 4 && id <= 10); // Only multi-mode weapons are special
         
         // Set max swaps based on weapon type
         switch (id)
         {
-            case 2: // Sword
             case 4: // Elemental Staff
             case 5: // Morph Cannon
             case 6: // Spirit Bow
@@ -48,6 +47,17 @@ public class Weapon : NetworkBehaviour
             case 9: // Ninja Kunai
             case 10: // Chaos Orb
                 maxSwaps = 3;
+                break;
+            case 11: // Lightning Gun
+            case 12: // Rocket Launcher
+            case 13: // Flame Thrower
+            case 14: // Ice Beam
+            case 15: // Boomerang
+            case 16: // Laser Cannon
+            case 17: // Gravity Gun
+            case 18: // Venom Spitter
+                maxSwaps = 1;
+                isSpecial = false;
                 break;
             default:
                 maxSwaps = 1;
@@ -177,6 +187,7 @@ public class Weapon : NetworkBehaviour
 
     void Update()
     {
+        timerMax = shot+end;
         var parent = GetParent();
         if (parent == null) return;
 
@@ -202,15 +213,6 @@ public class Weapon : NetworkBehaviour
         // Weapon-specific cooldowns and properties
         switch (id)
         {
-            case 2: // Sword weapon
-                switch (mouseShooting.swapModeNum)
-                {
-                    case 0: mouseShooting.shotCooldownTime = 0.3f; break;
-                    case 1: mouseShooting.shotCooldownTime = 0.6f; break;
-                    case 2: mouseShooting.shotCooldownTime = 1.2f; break;
-                }
-                break;
-
             case 4: // Elemental Staff
                 switch (mouseShooting.swapModeNum)
                 {
@@ -272,6 +274,38 @@ public class Weapon : NetworkBehaviour
                     case 1: mouseShooting.shotCooldownTime = 3.0f; break; // Portal - very high cost
                     case 2: mouseShooting.shotCooldownTime = 2.5f; break; // Gravity - high energy
                 }
+                break;
+
+            case 11: // Lightning Gun
+                mouseShooting.shotCooldownTime = 1.2f; // Chain lightning has moderate cooldown
+                break;
+
+            case 12: // Rocket Launcher
+                mouseShooting.shotCooldownTime = 2.0f; // High damage, long cooldown
+                break;
+
+            case 13: // Flame Thrower
+                mouseShooting.shotCooldownTime = 0.8f; // Continuous fire, shorter cooldown
+                break;
+
+            case 14: // Ice Beam
+                mouseShooting.shotCooldownTime = 1.5f; // Freeze effect, moderate cooldown
+                break;
+
+            case 15: // Boomerang
+                mouseShooting.shotCooldownTime = 1.8f; // Return mechanic, longer cooldown
+                break;
+
+            case 16: // Laser Cannon
+                mouseShooting.shotCooldownTime = 1.3f; // Piercing beam, moderate cooldown
+                break;
+
+            case 17: // Gravity Gun
+                mouseShooting.shotCooldownTime = 2.5f; // Area control, long cooldown
+                break;
+
+            case 18: // Venom Spitter
+                mouseShooting.shotCooldownTime = 1.1f; // DoT effect, moderate cooldown
                 break;
         }
 
