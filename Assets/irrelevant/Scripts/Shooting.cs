@@ -507,7 +507,7 @@ public class MouseShooting : NetworkBehaviour
                 ShootShotgun(direction);
                 break;
             case 2:
-                ShootKnife(direction);
+                ShootSword(direction);
                 break;
             case 3:
                 ShootAR(direction);
@@ -574,6 +574,8 @@ public class MouseShooting : NetworkBehaviour
 
     private void ShootSniper(Vector3 direction)
     {
+        if (bulletPrefabs.Length == 0) return;
+        
         Vector3 spawnPosition = firePoint.position + direction.normalized * 0.6f;
         GameObject bullet = Instantiate(bulletPrefabs[0], spawnPosition, Quaternion.identity);
 
@@ -581,7 +583,10 @@ public class MouseShooting : NetworkBehaviour
         bullet.transform.rotation = Quaternion.Euler(0, 0, angle);
 
         bullet.GetComponent<Rigidbody2D>().velocity = direction.normalized * bulletSpeed;
-        bullet.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+        
+        var bulletScript = bullet.GetComponent<Bullet>();
+        if (bulletScript != null)
+            bulletScript.shooterId = GetComponent<Enemy>().connectionId;
 
         NetworkServer.Spawn(bullet);
         Destroy(bullet, bulletLifetime);
@@ -603,7 +608,9 @@ public class MouseShooting : NetworkBehaviour
             var rb = bullet.GetComponent<Rigidbody2D>();
             rb.velocity = spreadDir * bulletSpeed;
 
-            bullet.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
+            var bulletScript = bullet.GetComponent<Bullet>();
+            if (bulletScript != null)
+                bulletScript.shooterId = GetComponent<Enemy>().connectionId;
 
             NetworkServer.Spawn(bullet);
             Destroy(bullet, bulletLifetime);
@@ -855,10 +862,13 @@ public class MouseShooting : NetworkBehaviour
                 var pierceRb = pierceArrow.GetComponent<Rigidbody2D>();
                 pierceRb.velocity = direction.normalized * (bulletSpeed * 1.4f);
                 
-                pierceArrow.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
-                if (pierceArrow.GetComponent<Bullet>() != null)
+                var pierceBullet = pierceArrow.GetComponent<Bullet>();
+                if (pierceBullet != null)
                 {
-                    pierceArrow.GetComponent<Bullet>().damage = 25f;
+                    pierceBullet.shooterId = GetComponent<Enemy>().connectionId;
+                    pierceBullet.damage = 25f;
+                    pierceBullet.isPiercing = true; // Enable piercing
+                    pierceBullet.maxPierceTargets = -1; // Unlimited piercing
                 }
                 
                 NetworkServer.Spawn(pierceArrow);
@@ -1326,8 +1336,13 @@ public class MouseShooting : NetworkBehaviour
             laserSegment.transform.rotation = Quaternion.Euler(0, 0, laserAngle);
             
             var laserBullet = laserSegment.GetComponent<Bullet>();
-            laserBullet.shooterId = GetComponent<Enemy>().connectionId;
-            laserBullet.damage = 18f; // High damage, pierces through
+            if (laserBullet != null)
+            {
+                laserBullet.shooterId = GetComponent<Enemy>().connectionId;
+                laserBullet.damage = 18f; // High damage, pierces through
+                laserBullet.isPiercing = true; // Laser pierces through all enemies
+                laserBullet.maxPierceTargets = -1; // Unlimited piercing
+            }
             
             NetworkServer.Spawn(laserSegment);
             Destroy(laserSegment, 0.2f);
@@ -1386,9 +1401,12 @@ public class MouseShooting : NetworkBehaviour
     // Helper coroutines for special weapon effects
     private IEnumerator CreateExplosion(GameObject rocket, Vector3 direction, float explosionRadius, float explosionDamage)
     {
-        // Wait for rocket to be destroyed or hit something
-        while (rocket != null)
+        // Wait for rocket to be destroyed or hit something (with timeout)
+        float elapsed = 0f;
+        float maxWait = bulletLifetime + 1f;
+        while (rocket != null && elapsed < maxWait)
         {
+            elapsed += 0.1f;
             yield return new WaitForSeconds(0.1f);
         }
         

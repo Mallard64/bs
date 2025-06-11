@@ -33,6 +33,12 @@ public class Bullet : NetworkBehaviour
     public float slowAmount = 0.5f; // Multiplier for movement speed (0.5 = 50% speed)
     public float lightningRange = 2f; // Range for lightning bolt effect
     public int lightningTargets = 3; // Max targets for lightning chains
+    
+    [Header("Bullet Properties")]
+    public bool isPiercing = false; // Bullet goes through enemies
+    public bool canGoThroughWalls = false; // Bullet goes through walls
+    public int maxPierceTargets = -1; // -1 = unlimited, 0+ = limited piercing
+    private int pierceCount = 0;
 
     [SerializeField] private float outwardOffset = 5f;
     public GameObject parent;
@@ -75,11 +81,15 @@ public class Bullet : NetworkBehaviour
             // shouldDamage = true;
             // DamageActualEnemy(actualEnemy, col);
         }
-        // Case 4: Hit environment/walls
+        // Case 5: Hit environment/walls
         else if (col.gameObject.CompareTag("Wall"))
         {
-            NetworkServer.Destroy(gameObject);
-            return;
+            // Only destroy if bullet can't go through walls
+            if (!canGoThroughWalls)
+            {
+                NetworkServer.Destroy(gameObject);
+                return;
+            }
         }
 
         if (shouldDamage)
@@ -87,13 +97,25 @@ public class Bullet : NetworkBehaviour
             // 1) Grab the contact point
             Vector3 hitPos = col.contacts[0].point;
 
-            // 4) Destroy the bullet
-            NetworkServer.Destroy(gameObject);
-        }
+            // 2) Apply special effects
+            ApplySpecialEffect(col.gameObject, hitPos);
 
-        if (shouldDamage)
-        {
-            NetworkServer.Destroy(gameObject);
+            // 3) Handle piercing logic
+            if (isPiercing)
+            {
+                pierceCount++;
+                // Only destroy if we've hit max pierce targets (if limit is set)
+                if (maxPierceTargets >= 0 && pierceCount >= maxPierceTargets)
+                {
+                    NetworkServer.Destroy(gameObject);
+                }
+                // If unlimited piercing or haven't hit limit, don't destroy
+            }
+            else
+            {
+                // Non-piercing bullets destroy on any hit
+                NetworkServer.Destroy(gameObject);
+            }
         }
     }
 
@@ -125,8 +147,7 @@ public class Bullet : NetworkBehaviour
         float stun = (kb * 0.4f) / 60f;
         player.ApplyKnockback(dir*kb, stun/10f);
         
-        // 5) Apply special effects
-        ApplySpecialEffect(player.gameObject, col.contacts[0].point);
+        // 5) Special effects are now handled in main collision logic
         
         // 6) Show damage number if combo multiplier > 1
         if (comboMultiplier > 1f)
@@ -154,8 +175,7 @@ public class Bullet : NetworkBehaviour
         float stun = (kb * 0.4f) / 60f;
         actualEnemy.ApplyKnockback(dir * kb, stun / 15f);
         
-        // 5) Apply special effects
-        ApplySpecialEffect(actualEnemy.gameObject, col.contacts[0].point);
+        // 5) Special effects are now handled in main collision logic
     }
 
     Vector2 GetKnockbackDirection(Collision2D col)
@@ -329,6 +349,7 @@ public class Bullet : NetworkBehaviour
         }
     }
     
+    [Server]
     void ApplyBurnEffect(GameObject target)
     {
         var burnEffect = target.GetComponent<BurnEffect>();
@@ -339,6 +360,7 @@ public class Bullet : NetworkBehaviour
         burnEffect.ApplyBurn(effectDamage, effectDuration, 1f); // 1 second intervals
     }
     
+    [Server]
     void ApplySlowEffect(GameObject target)
     {
         var slowEffect = target.GetComponent<SlowEffect>();
@@ -349,6 +371,7 @@ public class Bullet : NetworkBehaviour
         slowEffect.ApplySlow(slowAmount, effectDuration);
     }
     
+    [Server]
     void ApplyFreezeEffect(GameObject target)
     {
         var freezeEffect = target.GetComponent<FreezeEffect>();
@@ -412,30 +435,83 @@ public class Bullet : NetworkBehaviour
             {
                 hitCount++;
                 // Spawn visual lightning effect
-                SpawnLightningVisual(position, collider.transform.position);
+                RpcSpawnLightningVisual(position, collider.transform.position);
             }
         }
     }
     
     [ClientRpc]
-    void SpawnLightningVisual(Vector3 startPos, Vector3 endPos)
+    void RpcSpawnLightningVisual(Vector3 startPos, Vector3 endPos)
     {
-        // Create a simple line renderer for lightning effect
-        GameObject lightningLine = new GameObject("Lightning");
-        LineRenderer lr = lightningLine.AddComponent<LineRenderer>();
+        // Try to use lightning sprite first, fallback to LineRenderer
+        var lightningSprite = Resources.Load<Sprite>("Effect 2 - Sprite Sheet_0"); // First frame of lightning
         
-        lr.material = new Material(Shader.Find("Sprites/Default"));
-        lr.startWidth = 0.1f;
-        lr.endWidth = 0.05f;
-        lr.positionCount = 2;
-        lr.useWorldSpace = true;
-        lr.sortingOrder = 10;
+        if (lightningSprite != null)
+        {
+            // Create lightning bolt using sprite
+            GameObject lightningBolt = new GameObject("LightningBolt");
+            lightningBolt.transform.position = Vector3.Lerp(startPos, endPos, 0.5f); // Center between points
+            
+            var spriteRenderer = lightningBolt.AddComponent<SpriteRenderer>();
+            spriteRenderer.sprite = lightningSprite;
+            spriteRenderer.color = new Color(1f, 1f, 0.8f, 0.9f); // Bright yellow-white
+            spriteRenderer.sortingOrder = 15;
+            
+            // Scale and rotate to match direction
+            Vector3 direction = endPos - startPos;
+            float distance = direction.magnitude;
+            float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+            
+            lightningBolt.transform.rotation = Quaternion.Euler(0, 0, angle);
+            lightningBolt.transform.localScale = new Vector3(distance * 0.5f, 1.5f, 1f); // Scale to span distance
+            
+            // Animate with flickering effect
+            StartCoroutine(AnimateLightningBolt(lightningBolt, 0.3f));
+        }
+        else
+        {
+            // Fallback to LineRenderer if sprite not found
+            GameObject lightningLine = new GameObject("Lightning");
+            LineRenderer lr = lightningLine.AddComponent<LineRenderer>();
+            
+            lr.material = new Material(Shader.Find("Sprites/Default"));
+            lr.color = Color.yellow;
+            lr.startWidth = 0.15f;
+            lr.endWidth = 0.08f;
+            lr.positionCount = 2;
+            lr.useWorldSpace = true;
+            lr.sortingOrder = 10;
+            
+            lr.SetPosition(0, startPos);
+            lr.SetPosition(1, endPos);
+            
+            StartCoroutine(DestroyLightningVisual(lightningLine, 0.2f));
+        }
+    }
+    
+    IEnumerator AnimateLightningBolt(GameObject lightningBolt, float duration)
+    {
+        var spriteRenderer = lightningBolt.GetComponent<SpriteRenderer>();
+        Color originalColor = spriteRenderer.color;
         
-        lr.SetPosition(0, startPos);
-        lr.SetPosition(1, endPos);
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.deltaTime;
+            float t = elapsed / duration;
+            
+            // Flickering effect
+            float flicker = Mathf.Sin(Time.time * 50f) * 0.3f + 0.7f;
+            spriteRenderer.color = new Color(originalColor.r, originalColor.g, originalColor.b, 
+                                           originalColor.a * flicker * (1f - t));
+            
+            // Slight random rotation for energy effect
+            lightningBolt.transform.rotation *= Quaternion.Euler(0, 0, Random.Range(-2f, 2f));
+            
+            yield return null;
+        }
         
-        // Destroy lightning visual after short duration
-        StartCoroutine(DestroyLightningVisual(lightningLine, 0.2f));
+        Destroy(lightningBolt);
     }
     
     IEnumerator DestroyLightningVisual(GameObject lightning, float delay)
@@ -447,6 +523,7 @@ public class Bullet : NetworkBehaviour
         }
     }
     
+    [Server]
     void ApplyExplosionEffect(Vector3 position)
     {
         // Create explosion that damages all nearby enemies
@@ -492,6 +569,7 @@ public class Bullet : NetworkBehaviour
         SpawnExplosionVisual(position);
     }
     
+    [Server]
     void ApplyPoisonEffect(GameObject target)
     {
         var burnEffect = target.GetComponent<BurnEffect>();
@@ -503,6 +581,7 @@ public class Bullet : NetworkBehaviour
         burnEffect.ApplyBurn(effectDamage, effectDuration, 1.5f); // Slower ticks for poison
     }
     
+    [Server]
     void ApplyGravityEffect(GameObject target, Vector3 position)
     {
         var targetRb = target.GetComponent<Rigidbody2D>();
