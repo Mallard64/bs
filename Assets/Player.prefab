@@ -2431,7 +2431,7 @@ MonoBehaviour:
   - {fileID: 6644093383596391191, guid: 47aa76d1884b04c07b41c745b3399c3e, type: 3}
   - {fileID: 9049111763201746391, guid: 75630eebf16524015b0668db5b04acea, type: 3}
   weaponPickupPrefabsUncommon:
-  - {fileID: 9049111763201746391, guid: 74900a2145f4a40899be502a97e43988, type: 3}
+  - {fileID: 9049111763201746391, guid: 8165e5133ca7d4a42b456ebaa244aa63, type: 3}
   t: {fileID: 4850977600653972975}
   coinDisplay: {fileID: 0}
   other: {fileID: 1302533493974261916}
@@ -2537,6 +2537,10 @@ MonoBehaviour:
   swapModeNum: 0
   swapModeNumMax: 0
   hasSpecial: 0
+  staffBullets:
+  - {fileID: 3393839604986813093, guid: 3c1170eea83064e9694f6ca26f94c3da, type: 3}
+  - {fileID: 3393839604986813093, guid: 00d7680297e5d47fe8f0caf1f810ea85, type: 3}
+  - {fileID: 3393839604986813093, guid: 3c9559fee096e49b0b3bc327e1b61b5c, type: 3}
   weapons:
   - {fileID: 9049111763201746391, guid: 74900a2145f4a40899be502a97e43988, type: 3}
   - {fileID: 9049111763201746391, guid: 39d714aacbf684e02b6eae12bd718aaf, type: 3}
@@ -2569,6 +2573,13 @@ MonoBehaviour:
   weapId: 0
   weaponNetId: 0
   currentAmmo: 0
+  enableFunFeatures: 1
+  enableScreenShake: 0
+  enableBulletTrails: 1
+  enableRicochet: 0
+  enableCombos: 1
+  enableOvercharge: 1
+  ricochetChance: 0.15
   shotCooldown: 0
   isAiming: 0
   isPressed: 0

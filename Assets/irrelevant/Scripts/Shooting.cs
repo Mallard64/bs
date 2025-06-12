@@ -17,11 +17,14 @@ public class MouseShooting : NetworkBehaviour
 
     public Button swapMode;
 
+    [SyncVar]
     public int swapModeNum = 0;
 
     public int swapModeNumMax = 0;
 
     public bool hasSpecial = false;
+
+    public GameObject[] staffBullets;
 
     [Header("Weapon Prefabs (0 = none)")]
     public GameObject[] weapons;
@@ -75,6 +78,21 @@ public class MouseShooting : NetworkBehaviour
 
     [SyncVar(hook = nameof(OnAmmoChanged))]
     public int currentAmmo = 0;
+    
+    [Header("🎮 Fun Features")]
+    public bool enableFunFeatures = true;
+    public bool enableScreenShake = true;
+    public bool enableBulletTrails = true;
+    public bool enableRicochet = true;
+    public bool enableCombos = true;
+    public bool enableOvercharge = true;
+    [Range(0f, 1f)]
+    public float ricochetChance = 0.15f;
+    
+    // Fun features components
+    private SimpleComboSystem comboSystem;
+    private SimpleOverchargeSystem overchargeSystem;
+    private bool funFeaturesInitialized = false;
 
     private GameObject weaponInstance;
     private Rigidbody2D rb;
@@ -105,6 +123,289 @@ public class MouseShooting : NetworkBehaviour
         }
         isKeyboard = !Application.isMobilePlatform;
         deactivateMobile(!isKeyboard);
+        
+        // Initialize fun features
+        InitializeFunFeatures();
+    }
+
+    private void InitializeFunFeatures()
+    {
+        if (!enableFunFeatures || funFeaturesInitialized) return;
+        
+        Debug.Log($"🎮 Initializing Fun Features on {(isServer ? "Server" : "Client")}...");
+        
+        // Add combo system (each client manages their own for local player)
+        if (enableCombos && comboSystem == null && isLocalPlayer)
+        {
+            comboSystem = gameObject.AddComponent<SimpleComboSystem>();
+            Debug.Log("✅ Combo system added");
+        }
+        
+        // Add overcharge system (each client manages their own for local player)
+        if (enableOvercharge && overchargeSystem == null && isLocalPlayer)
+        {
+            overchargeSystem = gameObject.AddComponent<SimpleOverchargeSystem>();
+            Debug.Log("✅ Overcharge system added");
+        }
+        
+        // Setup screen shake (all clients need this for visual effects)
+        if (enableScreenShake && Camera.main != null)
+        {
+            if (Camera.main.GetComponent<ScreenShake>() == null)
+            {
+                Camera.main.gameObject.AddComponent<ScreenShake>();
+                Debug.Log("✅ Screen shake added to main camera");
+            }
+        }
+        
+        funFeaturesInitialized = true;
+        Debug.Log($"🎉 Fun Features fully initialized on {(isServer ? "Server" : "Client")}!");
+    }
+    
+    private void OnWeaponFiredFunFeatures(int weaponId, int mode = 0)
+    {
+        if (!enableFunFeatures) return;
+        
+        Debug.Log($"🎮 Fun Features: Weapon fired! ID={weaponId}, Mode={mode}");
+        
+        // Register with combo system
+        if (comboSystem != null && enableCombos)
+        {
+            comboSystem.RegisterWeaponFire(weaponId);
+        }
+        
+        // Register with overcharge system  
+        if (overchargeSystem != null && enableOvercharge)
+        {
+            overchargeSystem.OnWeaponFired();
+        }
+        
+        // Screen shake based on weapon
+        if (enableScreenShake && ScreenShake.Instance != null)
+        {
+            switch (weaponId)
+            {
+                case 0: // Sniper
+                    ScreenShake.Shake(0.4f, 0.15f);
+                    break;
+                case 1: // Shotgun
+                    ScreenShake.Shake(0.3f, 0.2f);
+                    break;
+                case 2: // AR
+                    ScreenShake.Shake(0.2f, 0.1f);
+                    break;
+                case 4: // Lightning Staff
+                    ScreenShake.ShakeLightning();
+                    break;
+                default:
+                    ScreenShake.Shake(0.2f, 0.1f);
+                    break;
+            }
+        }
+    }
+    
+    private void EnhanceBulletFunFeatures(GameObject bullet)
+    {
+        if (!enableFunFeatures || bullet == null) return;
+        
+        Debug.Log($"🎮 Server enhancing bullet: {bullet.name}");
+        
+        // Add ricochet chance (server-side only for physics)
+        if (enableRicochet && bullet.GetComponent<RicochetBullet>() == null)
+        {
+            if (UnityEngine.Random.Range(0f, 1f) < ricochetChance)
+            {
+                var ricochet = bullet.AddComponent<RicochetBullet>();
+                ricochet.maxBounces = 2;
+                ricochet.speedMultiplierPerBounce = 0.85f;
+                Debug.Log("🎯 Added ricochet to bullet!");
+            }
+        }
+        
+        // Trigger client-side visual enhancements
+        var bulletNetworkIdentity = bullet.GetComponent<NetworkIdentity>();
+        if (bulletNetworkIdentity != null)
+        {
+            RpcEnhanceBullet(bulletNetworkIdentity.netId);
+        }
+    }
+    
+    public float GetFunFeaturesDamageMultiplier()
+    {
+        if (!enableFunFeatures) return 1f;
+        
+        float comboMult = comboSystem != null ? comboSystem.GetDamageMultiplier() : 1f;
+        float overchargeMult = overchargeSystem != null ? overchargeSystem.GetDamageMultiplier() : 1f;
+        return comboMult * overchargeMult;
+    }
+    
+    [ClientRpc]
+    private void RpcTriggerFunFeatures(int weaponId, int mode)
+    {
+        if (!enableFunFeatures) return;
+        
+        Debug.Log($"🎮 Client Fun Features: Weapon fired! ID={weaponId}, Mode={mode}");
+        
+        // Only trigger for local player's own shots
+        if (isLocalPlayer)
+        {
+            // Register with local combo system
+            if (comboSystem != null && enableCombos)
+            {
+                comboSystem.RegisterWeaponFire(weaponId);
+            }
+            
+            // Register with local overcharge system  
+            if (overchargeSystem != null && enableOvercharge)
+            {
+                overchargeSystem.OnWeaponFired();
+            }
+        }
+        
+        // Screen shake on all clients (everyone sees/feels the effects)
+        if (enableScreenShake && ScreenShake.Instance != null)
+        {
+            switch (weaponId)
+            {
+                case 0: // Sniper
+                    ScreenShake.Shake(0.4f, 0.15f);
+                    break;
+                case 1: // Shotgun
+                    ScreenShake.Shake(0.3f, 0.2f);
+                    break;
+                case 2: // AR
+                    ScreenShake.Shake(0.2f, 0.1f);
+                    break;
+                case 4: // Lightning Staff
+                    ScreenShake.ShakeLightning();
+                    break;
+                default:
+                    ScreenShake.Shake(0.2f, 0.1f);
+                    break;
+            }
+        }
+    }
+    
+    [ClientRpc]
+    private void RpcEnhanceBullet(uint bulletNetId)
+    {
+        if (!enableFunFeatures) return;
+        
+        // Find bullet by network ID and enhance on client
+        if (NetworkClient.spawned.TryGetValue(bulletNetId, out var bulletNi))
+        {
+            GameObject bullet = bulletNi.gameObject;
+            Debug.Log($"🎮 Client enhancing bullet: {bullet.name}");
+            
+            // Add trail effect on client
+            if (enableBulletTrails && bullet.GetComponent<BulletTrailSystem>() == null)
+            {
+                var trailSystem = bullet.AddComponent<BulletTrailSystem>();
+                trailSystem.enableTrail = true;
+                trailSystem.enableParticles = true;
+            }
+            
+            // Note: Ricochet physics should only be on server to avoid conflicts
+        }
+    }
+    
+    [ClientRpc]
+    private void RpcStaffFireEffect(Vector3 position, float angle)
+    {
+        if (!enableFunFeatures) return;
+        
+        Debug.Log("🔥 Client: Fire staff visual effect triggered");
+        
+        // Add fire particle effects, screen shake, etc.
+        if (enableScreenShake && ScreenShake.Instance != null)
+        {
+            ScreenShake.Shake(0.25f, 0.1f);
+        }
+        
+        // Could add fire particle system here
+        // ParticleSystem.Instantiate(fireParticles, position, Quaternion.Euler(0, 0, angle));
+    }
+    
+    [ClientRpc]
+    private void RpcStaffIceEffect(Vector3 position, float angle)
+    {
+        if (!enableFunFeatures) return;
+        
+        Debug.Log("❄️ Client: Ice staff visual effect triggered");
+        
+        // Add ice particle effects, screen shake, etc.
+        if (enableScreenShake && ScreenShake.Instance != null)
+        {
+            ScreenShake.Shake(0.2f, 0.12f);
+        }
+        
+        // Could add ice crystal particle system here
+        // ParticleSystem.Instantiate(iceParticles, position, Quaternion.Euler(0, 0, angle));
+    }
+    
+    [ClientRpc]
+    private void RpcStaffLightningEffect(Vector3 startPos, float angle, float distance, Vector3 direction)
+    {
+        if (!enableFunFeatures) return;
+        
+        Debug.Log($"⚡ Client: Lightning staff visual effect - distance: {distance}, angle: {angle}");
+        
+        // Screen shake for lightning
+        if (enableScreenShake && ScreenShake.Instance != null)
+        {
+            ScreenShake.ShakeLightning(0.3f);
+        }
+        
+        // Could enhance the actual lightning bullet on client
+        StartCoroutine(EnhanceLightningVisualCoroutine(startPos, angle, distance, direction));
+    }
+    
+    private System.Collections.IEnumerator EnhanceLightningVisualCoroutine(Vector3 startPos, float angle, float distance, Vector3 direction)
+    {
+        // Wait a frame for the networked lightning bolt to spawn
+        yield return null;
+        
+        // Find recently spawned lightning bolts near the start position
+        Collider2D[] nearbyObjects = Physics2D.OverlapCircleAll(startPos, 2f);
+        
+        foreach (var obj in nearbyObjects)
+        {
+            if (obj.name.Contains("Lightning") || obj.GetComponent<Bullet>()?.effectType == BulletEffectType.LightningBolt)
+            {
+                GameObject lightning = obj.gameObject;
+                Debug.Log($"⚡ Client: Found lightning bolt to enhance: {lightning.name}");
+                
+                // Apply client-side visual enhancements
+                var spriteRenderer = lightning.GetComponent<SpriteRenderer>();
+                if (spriteRenderer != null)
+                {
+                    // Add flickering effect
+                    StartCoroutine(LightningFlickerEffect(spriteRenderer));
+                }
+                break;
+            }
+        }
+    }
+    
+    private System.Collections.IEnumerator LightningFlickerEffect(SpriteRenderer spriteRenderer)
+    {
+        Color originalColor = spriteRenderer.color;
+        float flickerTime = 0.5f;
+        float elapsed = 0f;
+        
+        while (elapsed < flickerTime && spriteRenderer != null)
+        {
+            // Flicker between bright white and original color
+            float alpha = Mathf.PingPong(Time.time * 20f, 1f);
+            spriteRenderer.color = Color.Lerp(originalColor, Color.white, alpha * 0.5f);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+        
+        if (spriteRenderer != null)
+        {
+            spriteRenderer.color = originalColor;
+        }
     }
 
     private void deactivateMobile(bool i)
@@ -112,11 +413,44 @@ public class MouseShooting : NetworkBehaviour
         movement.SetActive(i);
         shoot.SetActive(i);
     }
+    
+    
+    void OnGUI()
+    {
+        if (!isLocalPlayer || !enableFunFeatures) return;
+        
+        GUILayout.BeginArea(new Rect(10, 300, 300, 150));
+        GUILayout.Label("🎮 Fun Features Status:");
+        
+        // Show local systems only (each client manages their own)
+        if (comboSystem != null)
+        {
+            GUILayout.Label($"Combo Level: {comboSystem.GetComboLevel()} (x{comboSystem.GetDamageMultiplier():F1})");
+        }
+        
+        if (overchargeSystem != null)
+        {
+            GUILayout.Label($"⚡ Charge: {overchargeSystem.GetChargePercentage()*100:F0}%");
+            if (overchargeSystem.IsOvercharged())
+            {
+                GUILayout.Label("🌟 OVERCHARGED!");
+            }
+        }
+        
+        GUILayout.Label($"💥 Total Damage: x{GetFunFeaturesDamageMultiplier():F1}");
+        GUILayout.Label("F1=Test Shake, F2=Force Overcharge, F3=Debug");
+        
+        GUILayout.EndArea();
+    }
 
     #region Initialization
     public override void OnStartClient()
     {
         base.OnStartClient();
+        
+        // Initialize fun features for clients
+        InitializeFunFeatures();
+        
         // Register all weapon prefabs so they can spawn
         foreach (var prefab in weapons)
             if (prefab != null)
@@ -124,6 +458,10 @@ public class MouseShooting : NetworkBehaviour
 
         // Register all bullet prefabs
         foreach (var bulletPrefab in bulletPrefabs)
+            if (bulletPrefab != null)
+                NetworkClient.RegisterPrefab(bulletPrefab);
+
+        foreach (var bulletPrefab in staffBullets)
             if (bulletPrefab != null)
                 NetworkClient.RegisterPrefab(bulletPrefab);
 
@@ -184,6 +522,28 @@ public class MouseShooting : NetworkBehaviour
         }
         HandleShootingInput();
         UpdateUI();
+        
+        // Fun features testing (F1-F3 keys) - only for local player
+        if (enableFunFeatures && isLocalPlayer)
+        {
+            if (Input.GetKeyDown(KeyCode.F1))
+            {
+                ScreenShake.Shake(0.5f, 0.3f);
+                Debug.Log("🧪 Client screen shake test");
+            }
+            
+            if (Input.GetKeyDown(KeyCode.F2) && overchargeSystem != null)
+            {
+                overchargeSystem.ForceOvercharge();
+                Debug.Log("🧪 Client force overcharge test");
+            }
+            
+            if (Input.GetKeyDown(KeyCode.F3))
+            {
+                Debug.Log($"🧪 Client damage multiplier: x{GetFunFeaturesDamageMultiplier():F1}");
+                Debug.Log($"🧪 IsLocalPlayer: {isLocalPlayer}, ComboSystem: {comboSystem != null}, OverchargeSystem: {overchargeSystem != null}");
+            }
+        }
     }
     #endregion
 
@@ -251,19 +611,85 @@ public class MouseShooting : NetworkBehaviour
 
     void AttachWeaponClient(uint oldId, uint newId)
     {
+        // Handle old weapon
         if (oldId != 0 && NetworkClient.spawned.TryGetValue(oldId, out var oldNi))
+        {
+            // Re-enable NetworkTransform when detaching
+            var oldNetTransform = oldNi.GetComponent<NetworkTransform>();
+            if (oldNetTransform != null)
+            {
+                oldNetTransform.enabled = true;
+            }
             oldNi.gameObject.SetActive(false);
+        }
+        
+        // Handle new weapon
         if (newId != 0 && NetworkClient.spawned.TryGetValue(newId, out var newNi))
         {
             weaponInstance = newNi.gameObject;
+            
+            // Disable NetworkTransform to prevent position conflicts when parented
+            var netTransform = weaponInstance.GetComponent<NetworkTransform>();
+            if (netTransform != null)
+            {
+                netTransform.enabled = false;
+                Debug.Log($"🔧 Disabled NetworkTransform for weapon {weaponInstance.name} to prevent parenting conflicts");
+            }
+            
+            // Set parent with worldPositionStays = false to use local positioning
             weaponInstance.transform.SetParent(firePoint, false);
+            
+            // Reset local position and rotation for proper attachment
+            weaponInstance.transform.localPosition = Vector3.zero;
+            weaponInstance.transform.localRotation = Quaternion.identity;
+            
             weaponInstance.SetActive(true);
+            
+            Debug.Log($"🔧 Attached weapon {weaponInstance.name} to firePoint with local positioning");
         }
         wantsPickup = false;
     }
+    
+    // Method to properly detach weapon (for drops, disconnects, etc.)
+    public void DetachCurrentWeapon()
+    {
+        if (weaponInstance != null)
+        {
+            Debug.Log($"🔧 Detaching weapon {weaponInstance.name}");
+            
+            // Re-enable NetworkTransform for proper networking when weapon is detached
+            var netTransform = weaponInstance.GetComponent<NetworkTransform>();
+            if (netTransform != null)
+            {
+                netTransform.enabled = true;
+                Debug.Log($"🔧 Re-enabled NetworkTransform for detached weapon {weaponInstance.name}");
+            }
+            
+            // Unparent the weapon
+            weaponInstance.transform.SetParent(null, true); // Keep world position
+            weaponInstance = null;
+        }
+    }
+    
+    // Called when player disconnects to clean up weapons
+    public override void OnStopClient()
+    {
+        base.OnStopClient();
+        DetachCurrentWeapon();
+    }
+    
     #endregion
 
     public void SwapWeaponNum()
+    {
+        if (isLocalPlayer)
+        {
+            CmdSwapWeaponMode();
+        }
+    }
+
+    [Command]
+    void CmdSwapWeaponMode()
     {
         swapModeNum = (swapModeNum + 1) % swapModeNumMax;
     }
@@ -481,6 +907,12 @@ public class MouseShooting : NetworkBehaviour
         {
             overchargeSystem.AddOvercharge(2f); // Base overcharge for weapon use
         }
+        
+        // Trigger integrated fun features on server
+        OnWeaponFiredFunFeatures(weapon.id, swapModeNum);
+        
+        // Trigger fun features on all clients
+        RpcTriggerFunFeatures(weapon.id, swapModeNum);
 
         // Start shooting sequence
         StartCoroutine(ShootingSequence(weapon.id, direction, weapon.startup, weapon.shot, weapon.end));
@@ -589,6 +1021,9 @@ public class MouseShooting : NetworkBehaviour
             bulletScript.shooterId = GetComponent<Enemy>().connectionId;
 
         NetworkServer.Spawn(bullet);
+        
+        // Enhance bullet with integrated fun features
+        EnhanceBulletFunFeatures(bullet);
         Destroy(bullet, bulletLifetime);
     }
 
@@ -613,6 +1048,10 @@ public class MouseShooting : NetworkBehaviour
                 bulletScript.shooterId = GetComponent<Enemy>().connectionId;
 
             NetworkServer.Spawn(bullet);
+            
+            // Enhance bullet with integrated fun features
+            EnhanceBulletFunFeatures(bullet);
+            
             Destroy(bullet, bulletLifetime);
         }
     }
@@ -626,6 +1065,9 @@ public class MouseShooting : NetworkBehaviour
         hitbox.GetComponent<Bullet>().parent = gameObject;
 
         NetworkServer.Spawn(hitbox);
+        
+        // Enhance bullet with integrated fun features
+        EnhanceBulletFunFeatures(hitbox);
         Destroy(hitbox, 0.1f);
     }
 
@@ -645,6 +1087,9 @@ public class MouseShooting : NetworkBehaviour
         bullet.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
 
         NetworkServer.Spawn(bullet);
+        
+        // Enhance bullet with integrated fun features
+        EnhanceBulletFunFeatures(bullet);
         Destroy(bullet, bulletLifetime);
     }
 
@@ -660,6 +1105,9 @@ public class MouseShooting : NetworkBehaviour
                 stabHitbox.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
                 stabHitbox.GetComponent<Bullet>().parent = gameObject;
                 NetworkServer.Spawn(stabHitbox);
+                
+                // Enhance bullet with integrated fun features
+                EnhanceBulletFunFeatures(stabHitbox);
                 Destroy(stabHitbox, 0.15f);
                 break;
 
@@ -683,6 +1131,9 @@ public class MouseShooting : NetworkBehaviour
                     sliceHitbox.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
                     sliceHitbox.GetComponent<Bullet>().parent = gameObject;
                     NetworkServer.Spawn(sliceHitbox);
+                    
+                    // Enhance bullet with integrated fun features
+                    EnhanceBulletFunFeatures(sliceHitbox);
                     Destroy(sliceHitbox, 0.1f);
                 }
                 break;
@@ -701,6 +1152,9 @@ public class MouseShooting : NetworkBehaviour
                 thrownSword.GetComponent<Bullet>().shooterId = GetComponent<Enemy>().connectionId;
                 thrownSword.GetComponent<Bullet>().parent = gameObject;
                 NetworkServer.Spawn(thrownSword);
+                
+                // Enhance bullet with integrated fun features
+                EnhanceBulletFunFeatures(thrownSword);
                 Destroy(thrownSword, bulletLifetime * 1.2f);
                 break;
         }
@@ -714,8 +1168,8 @@ public class MouseShooting : NetworkBehaviour
         switch (swapModeNum)
         {
             case 0: // Fire Mode - Fast, burning DOT projectile
-                Vector3 firePos = firePoint.position + direction.normalized * 0.6f;
-                GameObject fireBolt = Instantiate(bulletPrefabs[0], firePos, Quaternion.identity);
+                Vector3 firePos = firePoint.position + direction.normalized * 1.0f;
+                GameObject fireBolt = Instantiate(staffBullets[0], firePos, Quaternion.identity);
                 
                 float fireAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
                 fireBolt.transform.rotation = Quaternion.Euler(0, 0, fireAngle);
@@ -731,12 +1185,19 @@ public class MouseShooting : NetworkBehaviour
                 fireBullet.effectDamage = 3f; // 3 damage per second
                 
                 NetworkServer.Spawn(fireBolt);
+                
+                // Enhance bullet with integrated fun features
+                EnhanceBulletFunFeatures(fireBolt);
+                
+                // Trigger fire visual effects on all clients
+                RpcStaffFireEffect(firePos, fireAngle);
+                
                 Destroy(fireBolt, bulletLifetime * 0.8f);
                 break;
 
             case 1: // Ice Mode - Slowing projectile with area effect
-                Vector3 icePos = firePoint.position + direction.normalized * 0.6f;
-                GameObject iceShard = Instantiate(bulletPrefabs[1], icePos, Quaternion.identity);
+                Vector3 icePos = firePoint.position + direction.normalized * 1.0f;
+                GameObject iceShard = Instantiate(staffBullets[1], icePos, Quaternion.identity);
                 
                 float iceAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
                 iceShard.transform.rotation = Quaternion.Euler(0, 0, iceAngle);
@@ -752,18 +1213,77 @@ public class MouseShooting : NetworkBehaviour
                 iceBullet.slowAmount = 0.4f; // Reduce movement to 40% of normal speed
                 
                 NetworkServer.Spawn(iceShard);
+                
+                // Enhance bullet with integrated fun features
+                EnhanceBulletFunFeatures(iceShard);
+                
+                // Trigger ice visual effects on all clients
+                RpcStaffIceEffect(icePos, iceAngle);
+                
                 Destroy(iceShard, bulletLifetime);
                 break;
 
-            case 2: // Lightning Mode - Chain lightning effect with high startup
-                Vector3 lightningPos = firePoint.position + direction.normalized * 0.4f;
-                GameObject lightning = Instantiate(bulletPrefabs[2], lightningPos, Quaternion.identity);
+            case 2: // Lightning Mode - Instant lightning bolt that stretches to target
+                Vector3 targetDir = GetComponent<Autoaim>().FindTarget();
+                Vector3 finalDirection;
+                float lightningDistance = 6f; // Max lightning stretch distance for staff
                 
-                float lightningAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+                if (targetDir != Vector3.positiveInfinity && targetDir.magnitude > 0.1f && targetDir.magnitude < 50f)
+                {
+                    // Target found - stretch lightning to target
+                    finalDirection = targetDir.normalized;
+                    lightningDistance = Mathf.Min(targetDir.magnitude, lightningDistance);
+                }
+                else
+                {
+                    // No target - shoot in mouse direction
+                    finalDirection = direction.magnitude > 0.1f ? direction.normalized : Vector3.right;
+                }
+                
+                // Clamp lightning distance to prevent physics errors
+                lightningDistance = Mathf.Clamp(lightningDistance, 1f, 6f);
+                
+                // Position lightning with pivot at left center, starting from firePoint
+                Vector3 lightningStartPos = firePoint.position;
+                
+                // Spawn lightning bolt at starting position
+                GameObject lightning = Instantiate(staffBullets[2], lightningStartPos, Quaternion.identity);
+                
+                float lightningAngle = Mathf.Atan2(finalDirection.y, finalDirection.x) * Mathf.Rad2Deg;
                 lightning.transform.rotation = Quaternion.Euler(0, 0, lightningAngle);
                 
+                // Scale the lightning bolt to stretch to target distance
+                // Since pivot is at left center, scaling X will extend it in the right direction
+                var spriteRenderer = lightning.GetComponent<SpriteRenderer>();
+                var boxCollider = lightning.GetComponent<BoxCollider2D>();
+                
+                if (spriteRenderer != null)
+                {
+                    Vector3 scale = lightning.transform.localScale;
+                    scale.x = lightningDistance; // Stretch along the bolt direction
+                    lightning.transform.localScale = scale;
+                }
+                
+                // Adjust BoxCollider to match the stretched lightning
+                if (boxCollider != null)
+                {
+                    Vector2 colliderSize = boxCollider.size;
+                    colliderSize.x = lightningDistance;
+                    boxCollider.size = colliderSize;
+                    
+                    // Center the collider along the lightning bolt
+                    Vector2 colliderOffset = boxCollider.offset;
+                    colliderOffset.x = lightningDistance * 0.5f;
+                    boxCollider.offset = colliderOffset;
+                }
+                
+                // Set lightning at rest (no velocity - instant hit)
                 var lightningRb = lightning.GetComponent<Rigidbody2D>();
-                lightningRb.velocity = direction.normalized * (bulletSpeed * 1.5f);
+                if (lightningRb != null)
+                {
+                    lightningRb.velocity = Vector2.zero;
+                    lightningRb.isKinematic = true; // Prevent physics movement
+                }
                 
                 var lightningBullet = lightning.GetComponent<Bullet>();
                 lightningBullet.shooterId = GetComponent<Enemy>().connectionId;
@@ -775,7 +1295,15 @@ public class MouseShooting : NetworkBehaviour
                 lightningBullet.lightningTargets = 4; // Up to 4 additional targets
                 
                 NetworkServer.Spawn(lightning);
-                Destroy(lightning, bulletLifetime * 0.6f);
+                
+                // Enhance bullet with integrated fun features
+                EnhanceBulletFunFeatures(lightning);
+                
+                // Trigger lightning visual effects on all clients
+                RpcStaffLightningEffect(lightningStartPos, lightningAngle, lightningDistance, finalDirection);
+                
+                // Lightning bolt lingers for animation to complete (0.5s animation)
+                Destroy(lightning, 0.6f);
                 break;
         }
     }
@@ -802,6 +1330,9 @@ public class MouseShooting : NetworkBehaviour
                 }
                 
                 NetworkServer.Spawn(rocket);
+                
+                // Enhance bullet with integrated fun features
+                EnhanceBulletFunFeatures(rocket);
                 Destroy(rocket, bulletLifetime);
                 break;
 
@@ -821,6 +1352,9 @@ public class MouseShooting : NetworkBehaviour
                     }
                     
                     NetworkServer.Spawn(beamSegment);
+                    
+                    // Enhance bullet with integrated fun features
+                    EnhanceBulletFunFeatures(beamSegment);
                     Destroy(beamSegment, 0.3f);
                 }
                 break;
@@ -842,6 +1376,9 @@ public class MouseShooting : NetworkBehaviour
                 }
                 
                 NetworkServer.Spawn(grenade);
+                
+                // Enhance bullet with integrated fun features
+                EnhanceBulletFunFeatures(grenade);
                 Destroy(grenade, bulletLifetime * 1.5f);
                 break;
         }
@@ -872,6 +1409,9 @@ public class MouseShooting : NetworkBehaviour
                 }
                 
                 NetworkServer.Spawn(pierceArrow);
+                
+                // Enhance bullet with integrated fun features
+                EnhanceBulletFunFeatures(pierceArrow);
                 Destroy(pierceArrow, bulletLifetime * 1.2f);
                 break;
 
@@ -892,6 +1432,9 @@ public class MouseShooting : NetworkBehaviour
                 }
                 
                 NetworkServer.Spawn(explosiveArrow);
+                
+                // Enhance bullet with integrated fun features
+                EnhanceBulletFunFeatures(explosiveArrow);
                 Destroy(explosiveArrow, bulletLifetime);
                 break;
 
@@ -912,6 +1455,9 @@ public class MouseShooting : NetworkBehaviour
                 }
                 
                 NetworkServer.Spawn(homingArrow);
+                
+                // Enhance bullet with integrated fun features
+                EnhanceBulletFunFeatures(homingArrow);
                 Destroy(homingArrow, bulletLifetime * 2f);
                 break;
         }
@@ -940,6 +1486,9 @@ public class MouseShooting : NetworkBehaviour
                     }
                     
                     NetworkServer.Spawn(shockwave);
+                    
+                    // Enhance bullet with integrated fun features
+                    EnhanceBulletFunFeatures(shockwave);
                     Destroy(shockwave, 0.2f);
                 }
                 break;
@@ -962,6 +1511,9 @@ public class MouseShooting : NetworkBehaviour
                 }
                 
                 NetworkServer.Spawn(thrownHammer);
+                
+                // Enhance bullet with integrated fun features
+                EnhanceBulletFunFeatures(thrownHammer);
                 Destroy(thrownHammer, bulletLifetime * 1.3f);
                 break;
 
@@ -982,6 +1534,9 @@ public class MouseShooting : NetworkBehaviour
                     }
                     
                     NetworkServer.Spawn(spinHitbox);
+                    
+                    // Enhance bullet with integrated fun features
+                    EnhanceBulletFunFeatures(spinHitbox);
                     Destroy(spinHitbox, 0.15f);
                 }
                 break;
@@ -1017,6 +1572,9 @@ public class MouseShooting : NetworkBehaviour
                 }
                 
                 NetworkServer.Spawn(chargeShot);
+                
+                // Enhance bullet with integrated fun features
+                EnhanceBulletFunFeatures(chargeShot);
                 Destroy(chargeShot, bulletLifetime);
                 break;
 
@@ -1039,6 +1597,9 @@ public class MouseShooting : NetworkBehaviour
                     }
                     
                     NetworkServer.Spawn(overloadShot);
+                    
+                    // Enhance bullet with integrated fun features
+                    EnhanceBulletFunFeatures(overloadShot);
                     Destroy(overloadShot, bulletLifetime * 0.7f);
                 }
                 break;
@@ -1065,6 +1626,9 @@ public class MouseShooting : NetworkBehaviour
         }
         
         NetworkServer.Spawn(burstShot);
+        
+        // Enhance bullet with integrated fun features
+        EnhanceBulletFunFeatures(burstShot);
         Destroy(burstShot, bulletLifetime);
     }
 
@@ -1095,6 +1659,9 @@ public class MouseShooting : NetworkBehaviour
                     }
                     
                     NetworkServer.Spawn(shadowKunai);
+                    
+                    // Enhance bullet with integrated fun features
+                    EnhanceBulletFunFeatures(shadowKunai);
                     Destroy(shadowKunai, bulletLifetime);
                 }
                 break;
@@ -1116,6 +1683,9 @@ public class MouseShooting : NetworkBehaviour
                 }
                 
                 NetworkServer.Spawn(poisonKunai);
+                
+                // Enhance bullet with integrated fun features
+                EnhanceBulletFunFeatures(poisonKunai);
                 Destroy(poisonKunai, bulletLifetime);
                 break;
 
@@ -1133,6 +1703,9 @@ public class MouseShooting : NetworkBehaviour
                 }
                 
                 NetworkServer.Spawn(teleportKunai);
+                
+                // Enhance bullet with integrated fun features
+                EnhanceBulletFunFeatures(teleportKunai);
                 Destroy(teleportKunai, 0.1f);
                 break;
         }
@@ -1165,6 +1738,9 @@ public class MouseShooting : NetworkBehaviour
                 }
                 
                 NetworkServer.Spawn(chaosOrb);
+                
+                // Enhance bullet with integrated fun features
+                EnhanceBulletFunFeatures(chaosOrb);
                 Destroy(chaosOrb, bulletLifetime * UnityEngine.Random.Range(0.8f, 1.5f));
                 break;
 
@@ -1179,6 +1755,9 @@ public class MouseShooting : NetworkBehaviour
                 }
                 
                 NetworkServer.Spawn(portal);
+                
+                // Enhance bullet with integrated fun features
+                EnhanceBulletFunFeatures(portal);
                 Destroy(portal, 2f); // Portal lasts 2 seconds
                 break;
 
@@ -1193,6 +1772,9 @@ public class MouseShooting : NetworkBehaviour
                 }
                 
                 NetworkServer.Spawn(gravityOrb);
+                
+                // Enhance bullet with integrated fun features
+                EnhanceBulletFunFeatures(gravityOrb);
                 Destroy(gravityOrb, 3f); // Gravity effect lasts 3 seconds
                 break;
         }
@@ -1202,15 +1784,67 @@ public class MouseShooting : NetworkBehaviour
 
     public void ShootLightningGun(Vector3 direction)
     {
-        // Lightning Gun - Chain lightning that arcs between enemies
-        Vector3 lightningPos = firePoint.position + direction.normalized * 0.6f;
-        GameObject lightning = Instantiate(bulletPrefabs[0], lightningPos, Quaternion.identity);
+        // Lightning Gun - Instant lightning bolt that stretches to target
+        Vector3 targetDir = GetComponent<Autoaim>().FindTarget();
+        Vector3 finalDirection;
+        float lightningDistance = 8f; // Max lightning stretch distance
         
-        float lightningAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+        if (targetDir != Vector3.positiveInfinity && targetDir.magnitude > 0.1f && targetDir.magnitude < 50f)
+        {
+            // Target found - stretch lightning to target
+            finalDirection = targetDir.normalized;
+            lightningDistance = Mathf.Min(targetDir.magnitude, lightningDistance);
+        }
+        else
+        {
+            // No target - shoot in mouse direction
+            finalDirection = direction.magnitude > 0.1f ? direction.normalized : Vector3.right;
+        }
+        
+        // Clamp lightning distance to prevent physics errors
+        lightningDistance = Mathf.Clamp(lightningDistance, 1f, 8f);
+        
+        // Position lightning with pivot at left center, starting from firePoint
+        Vector3 lightningStartPos = firePoint.position;
+        
+        // Spawn lightning bolt at starting position
+        GameObject lightning = Instantiate(bulletPrefabs[0], lightningStartPos, Quaternion.identity);
+        
+        float lightningAngle = Mathf.Atan2(finalDirection.y, finalDirection.x) * Mathf.Rad2Deg;
         lightning.transform.rotation = Quaternion.Euler(0, 0, lightningAngle);
         
+        // Scale the lightning bolt to stretch to target distance
+        // Since pivot is at left center, scaling X will extend it in the right direction
+        var spriteRenderer = lightning.GetComponent<SpriteRenderer>();
+        var boxCollider = lightning.GetComponent<BoxCollider2D>();
+        
+        if (spriteRenderer != null)
+        {
+            Vector3 scale = lightning.transform.localScale;
+            scale.x = lightningDistance; // Stretch along the bolt direction
+            lightning.transform.localScale = scale;
+        }
+        
+        // Adjust BoxCollider to match the stretched lightning
+        if (boxCollider != null)
+        {
+            Vector2 colliderSize = boxCollider.size;
+            colliderSize.x = lightningDistance;
+            boxCollider.size = colliderSize;
+            
+            // Center the collider along the lightning bolt
+            Vector2 colliderOffset = boxCollider.offset;
+            colliderOffset.x = lightningDistance * 0.5f;
+            boxCollider.offset = colliderOffset;
+        }
+        
+        // Set lightning at rest (no velocity - instant hit)
         var lightningRb = lightning.GetComponent<Rigidbody2D>();
-        lightningRb.velocity = direction.normalized * (bulletSpeed * 1.8f);
+        if (lightningRb != null)
+        {
+            lightningRb.velocity = Vector2.zero;
+            lightningRb.isKinematic = true; // Prevent physics movement
+        }
         
         var lightningBullet = lightning.GetComponent<Bullet>();
         lightningBullet.shooterId = GetComponent<Enemy>().connectionId;
@@ -1221,7 +1855,15 @@ public class MouseShooting : NetworkBehaviour
         lightningBullet.lightningTargets = 5; // Max chain targets
         
         NetworkServer.Spawn(lightning);
-        Destroy(lightning, bulletLifetime * 0.7f);
+        
+        // Enhance bullet with integrated fun features
+        EnhanceBulletFunFeatures(lightning);
+        
+        // Screen shake for lightning impact
+        ScreenShake.ShakeLightning(0.4f);
+        
+        // Lightning bolt lingers for animation to complete (0.5s animation)
+        Destroy(lightning, 0.6f);
     }
 
     public void ShootRocketLauncher(Vector3 direction)
@@ -1244,6 +1886,9 @@ public class MouseShooting : NetworkBehaviour
         StartCoroutine(CreateExplosion(rocket, direction, 2f, 35f));
         
         NetworkServer.Spawn(rocket);
+        
+        // Enhance bullet with integrated fun features
+        EnhanceBulletFunFeatures(rocket);
         Destroy(rocket, bulletLifetime);
     }
 
@@ -1274,6 +1919,9 @@ public class MouseShooting : NetworkBehaviour
             flameBullet.effectDamage = 4f; // Burn damage per tick
             
             NetworkServer.Spawn(flame);
+            
+            // Enhance bullet with integrated fun features
+            EnhanceBulletFunFeatures(flame);
             Destroy(flame, 0.4f); // Short lifetime for flame segments
         }
     }
@@ -1296,6 +1944,9 @@ public class MouseShooting : NetworkBehaviour
             iceBullet.effectDuration = 2f; // Freeze duration
             
             NetworkServer.Spawn(iceSegment);
+            
+            // Enhance bullet with integrated fun features
+            EnhanceBulletFunFeatures(iceSegment);
             Destroy(iceSegment, 0.5f);
         }
     }
@@ -1321,6 +1972,9 @@ public class MouseShooting : NetworkBehaviour
         StartCoroutine(BoomerangReturn(boomerang, 1.5f));
         
         NetworkServer.Spawn(boomerang);
+        
+        // Enhance bullet with integrated fun features
+        EnhanceBulletFunFeatures(boomerang);
         Destroy(boomerang, bulletLifetime * 2f); // Double lifetime for return trip
     }
 
@@ -1345,6 +1999,9 @@ public class MouseShooting : NetworkBehaviour
             }
             
             NetworkServer.Spawn(laserSegment);
+            
+            // Enhance bullet with integrated fun features
+            EnhanceBulletFunFeatures(laserSegment);
             Destroy(laserSegment, 0.2f);
         }
     }
@@ -1366,6 +2023,9 @@ public class MouseShooting : NetworkBehaviour
         StartCoroutine(GravityPullEffect(gravityWell, 4f));
         
         NetworkServer.Spawn(gravityWell);
+        
+        // Enhance bullet with integrated fun features
+        EnhanceBulletFunFeatures(gravityWell);
         Destroy(gravityWell, 4f); // Gravity well lasts 4 seconds
     }
 
@@ -1394,6 +2054,9 @@ public class MouseShooting : NetworkBehaviour
             venomBullet.effectDamage = 3f; // Poison damage per tick
             
             NetworkServer.Spawn(venomGlob);
+            
+            // Enhance bullet with integrated fun features
+            EnhanceBulletFunFeatures(venomGlob);
             Destroy(venomGlob, bulletLifetime);
         }
     }

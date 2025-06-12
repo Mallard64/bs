@@ -358,6 +358,13 @@ public class Bullet : NetworkBehaviour
             burnEffect = target.AddComponent<BurnEffect>();
         }
         burnEffect.ApplyBurn(effectDamage, effectDuration, 1f); // 1 second intervals
+        
+        // Trigger client-side effect
+        var targetNetworkIdentity = target.GetComponent<NetworkIdentity>();
+        if (targetNetworkIdentity != null)
+        {
+            RpcApplyBurnEffectClient(targetNetworkIdentity.netId, effectDamage, effectDuration);
+        }
     }
     
     [Server]
@@ -369,6 +376,13 @@ public class Bullet : NetworkBehaviour
             slowEffect = target.AddComponent<SlowEffect>();
         }
         slowEffect.ApplySlow(slowAmount, effectDuration);
+        
+        // Trigger client-side effect
+        var targetNetworkIdentity = target.GetComponent<NetworkIdentity>();
+        if (targetNetworkIdentity != null)
+        {
+            RpcApplySlowEffectClient(targetNetworkIdentity.netId, slowAmount, effectDuration);
+        }
     }
     
     [Server]
@@ -380,6 +394,13 @@ public class Bullet : NetworkBehaviour
             freezeEffect = target.AddComponent<FreezeEffect>();
         }
         freezeEffect.ApplyFreeze(effectDuration);
+        
+        // Trigger client-side effect
+        var targetNetworkIdentity = target.GetComponent<NetworkIdentity>();
+        if (targetNetworkIdentity != null)
+        {
+            RpcApplyFreezeEffectClient(targetNetworkIdentity.netId, effectDuration);
+        }
     }
     
     void ApplyLightningEffect(GameObject target, Vector3 position)
@@ -475,7 +496,6 @@ public class Bullet : NetworkBehaviour
             LineRenderer lr = lightningLine.AddComponent<LineRenderer>();
             
             lr.material = new Material(Shader.Find("Sprites/Default"));
-            lr.color = Color.yellow;
             lr.startWidth = 0.15f;
             lr.endWidth = 0.08f;
             lr.positionCount = 2;
@@ -646,6 +666,58 @@ public class Bullet : NetworkBehaviour
             
             elapsed += Time.fixedDeltaTime;
             yield return new WaitForFixedUpdate();
+        }
+    }
+    
+    // ClientRpc methods to ensure status effects show on all clients
+    [ClientRpc]
+    void RpcApplyBurnEffectClient(uint targetNetId, float damage, float duration)
+    {
+        // Find the target by network ID and ensure burn effect is applied on all clients
+        var spawnedDict = isServer ? NetworkServer.spawned : NetworkClient.spawned;
+        if (spawnedDict.TryGetValue(targetNetId, out var targetNi))
+        {
+            GameObject target = targetNi.gameObject;
+            var burnEffect = target.GetComponent<BurnEffect>();
+            if (burnEffect == null)
+            {
+                burnEffect = target.AddComponent<BurnEffect>();
+            }
+            burnEffect.ApplyBurn(damage, duration, 1f);
+        }
+    }
+    
+    [ClientRpc]
+    void RpcApplySlowEffectClient(uint targetNetId, float slowAmount, float duration)
+    {
+        // Find the target by network ID and ensure slow effect is applied on all clients
+        var spawnedDict = isServer ? NetworkServer.spawned : NetworkClient.spawned;
+        if (spawnedDict.TryGetValue(targetNetId, out var targetNi))
+        {
+            GameObject target = targetNi.gameObject;
+            var slowEffect = target.GetComponent<SlowEffect>();
+            if (slowEffect == null)
+            {
+                slowEffect = target.AddComponent<SlowEffect>();
+            }
+            slowEffect.ApplySlow(slowAmount, duration);
+        }
+    }
+    
+    [ClientRpc]
+    void RpcApplyFreezeEffectClient(uint targetNetId, float duration)
+    {
+        // Find the target by network ID and ensure freeze effect is applied on all clients
+        var spawnedDict = isServer ? NetworkServer.spawned : NetworkClient.spawned;
+        if (spawnedDict.TryGetValue(targetNetId, out var targetNi))
+        {
+            GameObject target = targetNi.gameObject;
+            var freezeEffect = target.GetComponent<FreezeEffect>();
+            if (freezeEffect == null)
+            {
+                freezeEffect = target.AddComponent<FreezeEffect>();
+            }
+            freezeEffect.ApplyFreeze(duration);
         }
     }
 }

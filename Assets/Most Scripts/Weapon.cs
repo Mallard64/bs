@@ -187,6 +187,11 @@ public class Weapon : NetworkBehaviour
 
     void Update()
     {
+        // Periodically validate position (only for client objects)
+        if (!isServer && Time.time % 1f < Time.deltaTime) // Once per second
+        {
+            ValidatePosition();
+        }
         timerMax = shot+end;
         var parent = GetParent();
         if (parent == null) return;
@@ -216,8 +221,8 @@ public class Weapon : NetworkBehaviour
             case 4: // Elemental Staff
                 switch (mouseShooting.swapModeNum)
                 {
-                    case 0: mouseShooting.shotCooldownTime = 0.4f; break; // Fire - fast
-                    case 1: mouseShooting.shotCooldownTime = 0.8f; break; // Ice - medium
+                    case 0: mouseShooting.shotCooldownTime = 1f; break; // Fire - fast
+                    case 1: mouseShooting.shotCooldownTime = 0.75f; break; // Ice - medium
                     case 2: mouseShooting.shotCooldownTime = 1.5f; break; // Lightning - slow, high damage
                 }
                 break;
@@ -404,16 +409,33 @@ public class Weapon : NetworkBehaviour
         var mouseShooting = parent.GetComponent<MouseShooting>();
         if (mouseShooting != null && mouseShooting.isShooting) return;
 
-        // Check if the parent is owned by the local client
+        // Check if the parent is the local player
         if (parent != null)
         {
             var parentIdentity = parent.GetComponent<NetworkIdentity>();
-            bool showAimSprite = parentIdentity.isLocalPlayer || (isClient && parentIdentity.isOwned);
+            
+            // Show aiming sprite only for the local player
+            bool showAimSprite = false;
+            
+            if (parentIdentity != null && mouseShooting != null)
+            {
+                // Use isLocalPlayer check from MouseShooting component
+                showAimSprite = mouseShooting.isLocalPlayer;
+            }
 
-            if (showAimSprite)
+            if (showAimSprite && aimingSprite != null)
             {
                 aimingSprite.SetActive(true);
                 aimingSprite.transform.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg);
+                Debug.Log($"🎯 Aiming sprite shown for weapon {id} (local player)");
+            }
+            else if (aimingSprite != null)
+            {
+                aimingSprite.SetActive(false);
+            }
+            else if (showAimSprite)
+            {
+                Debug.LogWarning($"⚠️ Weapon {id}: No aiming sprite assigned but should show for local player");
             }
         }
 
@@ -424,6 +446,38 @@ public class Weapon : NetworkBehaviour
     // Called by MouseShooting to stop aiming
     public void StopAiming()
     {
-        aimingSprite.SetActive(false);
+        if (aimingSprite != null)
+        {
+            aimingSprite.SetActive(false);
+        }
+    }
+    
+    // Ensure weapon positioning is correct when attached to player
+    public void ValidatePosition()
+    {
+        // If this weapon is parented to a firePoint, ensure it's positioned correctly
+        if (transform.parent != null && transform.parent.name.Contains("firePoint"))
+        {
+            var netTransform = GetComponent<NetworkTransformReliable>();
+            if (netTransform != null && netTransform.enabled)
+            {
+                // Disable NetworkTransform if it's still enabled while parented
+                netTransform.enabled = false;
+                Debug.Log($"🔧 Auto-disabled NetworkTransform for parented weapon {gameObject.name}");
+            }
+            
+            // Ensure local positioning is correct
+            if (transform.localPosition != Vector3.zero)
+            {
+                transform.localPosition = Vector3.zero;
+                Debug.Log($"🔧 Reset local position for weapon {gameObject.name}");
+            }
+            
+            if (transform.localRotation != Quaternion.identity)
+            {
+                transform.localRotation = Quaternion.identity;
+                Debug.Log($"🔧 Reset local rotation for weapon {gameObject.name}");
+            }
+        }
     }
 }

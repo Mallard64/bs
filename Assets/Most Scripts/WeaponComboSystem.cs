@@ -83,11 +83,19 @@ public class WeaponComboSystem : NetworkBehaviour
 
     void Start()
     {
-        if (!isLocalPlayer)
+        // Only check isLocalPlayer if this is a NetworkBehaviour with authority
+        try
         {
-            if (comboCountText != null) comboCountText.gameObject.SetActive(false);
-            if (comboMultiplierText != null) comboMultiplierText.gameObject.SetActive(false);
-            if (comboPopup != null) comboPopup.SetActive(false);
+            if (!isLocalPlayer)
+            {
+                if (comboCountText != null) comboCountText.gameObject.SetActive(false);
+                if (comboMultiplierText != null) comboMultiplierText.gameObject.SetActive(false);
+                if (comboPopup != null) comboPopup.SetActive(false);
+            }
+        }
+        catch
+        {
+            // If networking isn't set up, just continue - UI will be handled elsewhere
         }
     }
 
