@@ -820,6 +820,18 @@ public class MouseShooting : NetworkBehaviour
         }
 
         isAuto = true;
+        
+        // Play animation immediately on client for responsive feedback
+        if (weaponNetId != 0 && NetworkClient.spawned.TryGetValue(weaponNetId, out var weaponNi))
+        {
+            var weapon = weaponNi.GetComponent<Weapon>();
+            if (weapon != null)
+            {
+                weapon.PlayShootAnimation();
+                weapon.RotateToDirection(fallbackDir);
+            }
+        }
+        
         CmdPerformShoot(fallbackDir);
         shotCooldown = shotCooldownTime;
     }
@@ -854,6 +866,18 @@ public class MouseShooting : NetworkBehaviour
         }
 
         isAuto = false;
+        
+        // Play animation immediately on client for responsive feedback
+        if (weaponNetId != 0 && NetworkClient.spawned.TryGetValue(weaponNetId, out var weaponNi))
+        {
+            var weapon = weaponNi.GetComponent<Weapon>();
+            if (weapon != null)
+            {
+                weapon.PlayShootAnimation();
+                weapon.RotateToDirection(shootDir);
+            }
+        }
+        
         CmdPerformShoot(shootDir);
         shotCooldown = shotCooldownTime;
     }

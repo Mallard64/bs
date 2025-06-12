@@ -208,14 +208,14 @@ public class WeaponComboSystem : NetworkBehaviour
     [ClientRpc]
     void RpcShowComboText(string text)
     {
-        if (!isLocalPlayer) return;
+        // Show combo effects to ALL clients so everyone can see streak achievements
         StartCoroutine(ShowComboTextRoutine(text));
     }
     
     [ClientRpc]
     void RpcShowSpecialCombo(string comboName, string description)
     {
-        if (!isLocalPlayer) return;
+        // Show special combo effects to ALL clients so everyone can see streak achievements
         StartCoroutine(ShowSpecialComboRoutine(comboName, description));
     }
     
