@@ -125,16 +125,9 @@ public class FreezeEffect : NetworkBehaviour
         // Create visual freeze effect visible to ALL clients (including the affected player)
         StartCoroutine(FreezeVisualEffect(duration));
         
-        // Add extra visual effects for OTHER players to clearly see this player is frozen
-        if (!isLocalPlayer)
-        {
-            Debug.Log($"❄️ Other players can see {gameObject.name} is frozen with enhanced ice effect");
-            StartCoroutine(EnhancedFreezeEffectForOthers(duration));
-        }
-        else
-        {
-            Debug.Log($"❄️ You are frozen and can see your own freeze effect");
-        }
+        // Add enhanced visual effects for ALL clients to see this player is frozen
+        Debug.Log($"❄️ All players can see {gameObject.name} is frozen with enhanced ice effect");
+        StartCoroutine(EnhancedFreezeEffectForOthers(duration));
     }
     
     IEnumerator FreezeVisualEffect(float duration)

@@ -72,16 +72,9 @@ public class BurnEffect : NetworkBehaviour
         // Create visual burn effect visible to ALL clients (including the affected player)
         StartCoroutine(BurnVisualEffect(duration));
         
-        // Add extra visual effects for OTHER players to clearly see this player is burning
-        if (!isLocalPlayer)
-        {
-            Debug.Log($"🔥 Other players can see {gameObject.name} is burning with enhanced fire effect");
-            StartCoroutine(EnhancedBurnEffectForOthers(duration));
-        }
-        else
-        {
-            Debug.Log($"🔥 You are burning and can see your own burn effect");
-        }
+        // Add enhanced visual effects for ALL clients to see this player is burning
+        Debug.Log($"🔥 All players can see {gameObject.name} is burning with enhanced fire effect");
+        StartCoroutine(EnhancedBurnEffectForOthers(duration));
     }
     
     IEnumerator BurnVisualEffect(float duration)

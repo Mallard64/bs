@@ -357,13 +357,19 @@ public class Weapon : NetworkBehaviour
 
     void UpdateVisuals(GameObject parent)
     {
-        // Don't manually set position if this weapon is a child of parent
-        // The Transform hierarchy handles positioning automatically
-        // Only set position if this weapon is NOT a child
-        transform.position = parent.transform.position;
-
         var mouseShooting = parent.GetComponent<MouseShooting>();
         if (mouseShooting == null) return;
+        
+        // Always position weapon at the firePoint - NetworkTransform will sync this across clients
+        if (mouseShooting.firePoint != null)
+        {
+            transform.position = mouseShooting.firePoint.position;
+        }
+        else
+        {
+            // Fallback to parent position
+            transform.position = parent.transform.position;
+        }
 
         // Handle movement-based rotation when not shooting
         if (!mouseShooting.isShooting && !mouseShooting.isAiming)
@@ -455,29 +461,12 @@ public class Weapon : NetworkBehaviour
     // Ensure weapon positioning is correct when attached to player
     public void ValidatePosition()
     {
-        // If this weapon is parented to a firePoint, ensure it's positioned correctly
-        if (transform.parent != null && transform.parent.name.Contains("firePoint"))
+        // Since we're not using parenting anymore, just ensure NetworkTransform is enabled
+        var netTransform = GetComponent<NetworkTransformReliable>();
+        if (netTransform != null && !netTransform.enabled)
         {
-            var netTransform = GetComponent<NetworkTransformReliable>();
-            if (netTransform != null && netTransform.enabled)
-            {
-                // Disable NetworkTransform if it's still enabled while parented
-                netTransform.enabled = false;
-                Debug.Log($"🔧 Auto-disabled NetworkTransform for parented weapon {gameObject.name}");
-            }
-            
-            // Ensure local positioning is correct
-            if (transform.localPosition != Vector3.zero)
-            {
-                transform.localPosition = Vector3.zero;
-                Debug.Log($"🔧 Reset local position for weapon {gameObject.name}");
-            }
-            
-            if (transform.localRotation != Quaternion.identity)
-            {
-                transform.localRotation = Quaternion.identity;
-                Debug.Log($"🔧 Reset local rotation for weapon {gameObject.name}");
-            }
+            netTransform.enabled = true;
+            Debug.Log($"🔧 Ensured NetworkTransform is enabled for weapon {gameObject.name}");
         }
     }
 }

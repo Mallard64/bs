@@ -614,12 +614,6 @@ public class MouseShooting : NetworkBehaviour
         // Handle old weapon
         if (oldId != 0 && NetworkClient.spawned.TryGetValue(oldId, out var oldNi))
         {
-            // Re-enable NetworkTransform when detaching
-            var oldNetTransform = oldNi.GetComponent<NetworkTransform>();
-            if (oldNetTransform != null)
-            {
-                oldNetTransform.enabled = true;
-            }
             oldNi.gameObject.SetActive(false);
         }
         
@@ -628,24 +622,12 @@ public class MouseShooting : NetworkBehaviour
         {
             weaponInstance = newNi.gameObject;
             
-            // Disable NetworkTransform to prevent position conflicts when parented
-            var netTransform = weaponInstance.GetComponent<NetworkTransform>();
-            if (netTransform != null)
-            {
-                netTransform.enabled = false;
-                Debug.Log($"🔧 Disabled NetworkTransform for weapon {weaponInstance.name} to prevent parenting conflicts");
-            }
-            
-            // Set parent with worldPositionStays = false to use local positioning
-            weaponInstance.transform.SetParent(firePoint, false);
-            
-            // Reset local position and rotation for proper attachment
-            weaponInstance.transform.localPosition = Vector3.zero;
-            weaponInstance.transform.localRotation = Quaternion.identity;
+            // Keep NetworkTransform enabled for proper synchronization
+            // Don't parent - let the Weapon script handle positioning
             
             weaponInstance.SetActive(true);
             
-            Debug.Log($"🔧 Attached weapon {weaponInstance.name} to firePoint with local positioning");
+            Debug.Log($"🔧 Activated weapon {weaponInstance.name} with NetworkTransform synchronization");
         }
         wantsPickup = false;
     }
@@ -657,16 +639,7 @@ public class MouseShooting : NetworkBehaviour
         {
             Debug.Log($"🔧 Detaching weapon {weaponInstance.name}");
             
-            // Re-enable NetworkTransform for proper networking when weapon is detached
-            var netTransform = weaponInstance.GetComponent<NetworkTransform>();
-            if (netTransform != null)
-            {
-                netTransform.enabled = true;
-                Debug.Log($"🔧 Re-enabled NetworkTransform for detached weapon {weaponInstance.name}");
-            }
-            
-            // Unparent the weapon
-            weaponInstance.transform.SetParent(null, true); // Keep world position
+            // No need to change NetworkTransform or parenting since we're not using parenting
             weaponInstance = null;
         }
     }
@@ -2168,7 +2141,10 @@ public class MouseShooting : NetworkBehaviour
         var prefab = weapons[weaponIdx];
         var instance = Instantiate(prefab, firePoint.position, Quaternion.identity);
         var ni = instance.GetComponent<NetworkIdentity>();
-        instance.transform.SetParent(gameObject.transform, true);
+        
+        // Keep NetworkTransform enabled for proper synchronization
+        // Don't parent - let NetworkTransform handle position sync
+        
         instance.GetComponent<Weapon>().slotnum = weapId;
         instance.GetComponent<Weapon>().SetParent(gameObject);
         NetworkServer.Spawn(instance, connectionToClient);
