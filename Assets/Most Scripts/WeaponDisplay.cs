@@ -2,7 +2,7 @@ using System.Collections;
 using UnityEngine;
 using TMPro;
 
-public class WeaponDisplay : MonoBehaviour
+public class WeaponDisplay : MonoBehaviour, IInteractable
 {
     [Header("Display Settings")]
     public GameObject[] weaponPrefabs;
@@ -291,5 +291,31 @@ public class WeaponDisplay : MonoBehaviour
         
         // Could open a weapon details panel
         // WeaponDetailsPanel.Instance.ShowWeapon(currentWeaponIndex);
+    }
+    
+    // IInteractable implementation
+    public void Interact(GameObject player)
+    {
+        // Switch to next weapon when interacted with
+        SwitchToNextWeapon();
+        
+        // Show notification about the weapon
+        if (NotificationSystem.Instance != null && currentWeaponIndex < weaponNames.Length)
+        {
+            string message = $"🗡️ {weaponNames[currentWeaponIndex]}: {weaponDescriptions[currentWeaponIndex]}";
+            NotificationSystem.Instance.ShowNotification(message, 3f, NotificationType.Info);
+        }
+        
+        Debug.Log($"🗡️ Player interacted with weapon display - showing {weaponNames[currentWeaponIndex]}");
+    }
+    
+    public string GetInteractionText()
+    {
+        return "cycle weapons";
+    }
+    
+    public bool CanInteract(GameObject player)
+    {
+        return true; // Always allow interaction with weapon display
     }
 }

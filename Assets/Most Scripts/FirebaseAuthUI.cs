@@ -1,17 +1,19 @@
 using UnityEngine;
 using UnityEngine.UI;
-using Firebase;
-using Firebase.Auth;
-using Firebase.Extensions;
+using UnityEngine.Networking;
 using System;
-using System.Threading.Tasks;
 using System.Collections;
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine.EventSystems;
+using Newtonsoft.Json;
+using System.Text;
 
-public class FirebaseAuthManager : MonoBehaviour
+public class FirebaseAuthUI : MonoBehaviour
 {
+    [Header("Firebase Configuration")]
+    [SerializeField] private string firebaseApiKey = "AIzaSyCXU2WmL5CfB5JBTR3_FOWJPFvYMAl-kkU";
+    [SerializeField] private string firebaseProjectId = "smashbrawl-4fca6";
+
     [Header("UI References")]
     [SerializeField] private GameObject loginPanel;
     [SerializeField] private GameObject userPanel;
@@ -23,9 +25,22 @@ public class FirebaseAuthManager : MonoBehaviour
     [SerializeField] private Text statusText;
     [SerializeField] private Text userEmailText;
 
-    private FirebaseAuth auth;
-    private FirebaseUser user;
-    private bool firebaseReady = false;
+    // Current user data
+    private string currentUserId = "";
+    private string currentEmail = "";
+    private string currentIdToken = "";
+    private string currentRefreshToken = "";
+    private bool isLoggedIn = false;
+
+    // Firebase REST API URLs
+    private string authSignInUrl => $"https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key={firebaseApiKey}";
+    private string authSignUpUrl => $"https://identitytoolkit.googleapis.com/v1/accounts:signUp?key={firebaseApiKey}";
+    private string authRefreshUrl => $"https://securetoken.googleapis.com/v1/token?key={firebaseApiKey}";
+
+    // Events
+    public event System.Action<string> OnUserSignedIn;
+    public event System.Action OnUserSignedOut;
+    public event System.Action<bool> OnAuthStateChanged;
 
     void Start()
     {
@@ -35,84 +50,61 @@ public class FirebaseAuthManager : MonoBehaviour
             GenerateUI();
         }
 
-        InitializeFirebase();
+        SetupUI();
+        CheckSavedLogin();
     }
 
-    private void InitializeFirebase()
+    private void SetupUI()
     {
-        FirebaseApp.CheckAndFixDependenciesAsync().ContinueWithOnMainThread(task =>
-        {
-            if (task.Result == DependencyStatus.Available)
-            {
-                auth = FirebaseAuth.DefaultInstance;
-                auth.StateChanged += AuthStateChanged;
-                AuthStateChanged(this, null);
-                firebaseReady = true;
-                UpdateStatus("Firebase initialized successfully", Color.green);
-            }
-            else
-            {
-                UpdateStatus($"Failed to initialize Firebase: {task.Result}", Color.red);
-            }
-        });
+        // Connect button events
+        if (loginButton != null)
+            loginButton.onClick.AddListener(OnLoginButtonClicked);
+        if (registerButton != null)
+            registerButton.onClick.AddListener(OnRegisterButtonClicked);
+        if (logoutButton != null)
+            logoutButton.onClick.AddListener(OnLogoutButtonClicked);
+
+        UpdateStatus("Ready to authenticate", Color.white);
+        ShowLoginPanel();
     }
 
-    private void AuthStateChanged(object sender, EventArgs eventArgs)
+    private void CheckSavedLogin()
     {
-        if (auth.CurrentUser != user)
+        // Check for saved authentication data
+        string savedUserId = PlayerPrefs.GetString("Firebase_UserId", "");
+        string savedEmail = PlayerPrefs.GetString("Firebase_Email", "");
+        string savedToken = PlayerPrefs.GetString("Firebase_IdToken", "");
+        string savedRefreshToken = PlayerPrefs.GetString("Firebase_RefreshToken", "");
+
+        if (!string.IsNullOrEmpty(savedUserId) && !string.IsNullOrEmpty(savedRefreshToken))
         {
-            bool signedIn = user != auth.CurrentUser && auth.CurrentUser != null;
+            currentUserId = savedUserId;
+            currentEmail = savedEmail;
+            currentIdToken = savedToken;
+            currentRefreshToken = savedRefreshToken;
 
-            if (!signedIn && user != null)
-            {
-                Debug.Log("Signed out: " + user.Email);
-            }
-
-            user = auth.CurrentUser;
-
-            if (signedIn)
-            {
-                Debug.Log("Signed in: " + user.Email);
-                ShowUserPanel();
-            }
-            else
-            {
-                ShowLoginPanel();
-            }
+            // Try to refresh the token
+            StartCoroutine(RefreshTokenCoroutine());
         }
     }
 
     public void OnLoginButtonClicked()
     {
-        if (!firebaseReady) return;
-
         string email = emailInput.text.Trim();
         string password = passwordInput.text;
 
-        if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
-        {
-            UpdateStatus("Please enter email and password", Color.red);
-            return;
-        }
+        if (!ValidateInput(email, password)) return;
 
-        loginButton.interactable = false;
-        registerButton.interactable = false;
-
-        SignInWithEmailPassword(email, password);
+        SetButtonsInteractable(false);
+        StartCoroutine(LoginCoroutine(email, password));
     }
 
     public void OnRegisterButtonClicked()
     {
-        if (!firebaseReady) return;
-
         string email = emailInput.text.Trim();
         string password = passwordInput.text;
 
-        if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
-        {
-            UpdateStatus("Please enter email and password", Color.red);
-            return;
-        }
+        if (!ValidateInput(email, password)) return;
 
         if (password.Length < 6)
         {
@@ -120,110 +112,256 @@ public class FirebaseAuthManager : MonoBehaviour
             return;
         }
 
-        loginButton.interactable = false;
-        registerButton.interactable = false;
-
-        CreateUserWithEmailPassword(email, password);
-    }
-
-    private void SignInWithEmailPassword(string email, string password)
-    {
-        UpdateStatus("Signing in...", Color.yellow);
-
-        auth.SignInWithEmailAndPasswordAsync(email, password).ContinueWithOnMainThread(task =>
-        {
-            loginButton.interactable = true;
-            registerButton.interactable = true;
-
-            if (task.IsCanceled)
-            {
-                UpdateStatus("Sign in was canceled", Color.red);
-                return;
-            }
-            if (task.IsFaulted)
-            {
-                HandleAuthError(task.Exception);
-                return;
-            }
-
-            FirebaseUser newUser = task.Result.User;
-            UpdateStatus($"Signed in successfully as {newUser.Email}", Color.green);
-        });
-    }
-
-    private void CreateUserWithEmailPassword(string email, string password)
-    {
-        UpdateStatus("Creating account...", Color.yellow);
-
-        auth.CreateUserWithEmailAndPasswordAsync(email, password).ContinueWithOnMainThread(task =>
-        {
-            loginButton.interactable = true;
-            registerButton.interactable = true;
-
-            if (task.IsCanceled)
-            {
-                UpdateStatus("Registration was canceled", Color.red);
-                return;
-            }
-            if (task.IsFaulted)
-            {
-                HandleAuthError(task.Exception);
-                return;
-            }
-
-            FirebaseUser newUser = task.Result.User;
-            UpdateStatus($"Account created successfully for {newUser.Email}", Color.green);
-        });
+        SetButtonsInteractable(false);
+        StartCoroutine(RegisterCoroutine(email, password));
     }
 
     public void OnLogoutButtonClicked()
     {
-        if (auth != null && user != null)
+        Logout();
+    }
+
+    private bool ValidateInput(string email, string password)
+    {
+        if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(password))
         {
-            auth.SignOut();
-            UpdateStatus("Signed out successfully", Color.green);
+            UpdateStatus("Please enter email and password", Color.red);
+            return false;
+        }
+
+        if (!IsValidEmail(email))
+        {
+            UpdateStatus("Please enter a valid email address", Color.red);
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool IsValidEmail(string email)
+    {
+        try
+        {
+            var addr = new System.Net.Mail.MailAddress(email);
+            return addr.Address == email;
+        }
+        catch
+        {
+            return false;
         }
     }
 
-    private void HandleAuthError(AggregateException exception)
+    private void SetButtonsInteractable(bool interactable)
     {
-        FirebaseException firebaseEx = exception.GetBaseException() as FirebaseException;
+        if (loginButton != null) loginButton.interactable = interactable;
+        if (registerButton != null) registerButton.interactable = interactable;
+    }
 
-        if (firebaseEx != null)
+    private IEnumerator LoginCoroutine(string email, string password)
+    {
+        UpdateStatus("Signing in...", Color.yellow);
+
+        var request = new FirebaseAuthRequest
         {
-            AuthError errorCode = (AuthError)firebaseEx.ErrorCode;
-            string message = "Authentication failed: ";
+            email = email,
+            password = password
+        };
 
-            switch (errorCode)
+        string jsonData = JsonConvert.SerializeObject(request);
+
+        using (UnityWebRequest www = new UnityWebRequest(authSignInUrl, "POST"))
+        {
+            byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
+            www.uploadHandler = new UploadHandlerRaw(bodyRaw);
+            www.downloadHandler = new DownloadHandlerBuffer();
+            www.SetRequestHeader("Content-Type", "application/json");
+
+            yield return www.SendWebRequest();
+
+            SetButtonsInteractable(true);
+
+            if (www.result == UnityWebRequest.Result.Success)
             {
-                case AuthError.InvalidEmail:
-                    message += "Invalid email address";
-                    break;
-                case AuthError.WrongPassword:
-                    message += "Wrong password";
-                    break;
-                case AuthError.UserNotFound:
-                    message += "User not found";
-                    break;
-                case AuthError.EmailAlreadyInUse:
-                    message += "Email already in use";
-                    break;
-                case AuthError.WeakPassword:
-                    message += "Password is too weak";
-                    break;
-                case AuthError.NetworkRequestFailed:
-                    message += "Network error. Check your connection";
-                    break;
-                default:
-                    message += errorCode.ToString();
-                    break;
+                var response = JsonConvert.DeserializeObject<FirebaseAuthResponse>(www.downloadHandler.text);
+                HandleSuccessfulAuth(response, "Signed in successfully!");
             }
-
-            UpdateStatus(message, Color.red);
+            else
+            {
+                HandleAuthError(www.downloadHandler.text);
+            }
         }
-        else
+    }
+
+    private IEnumerator RegisterCoroutine(string email, string password)
+    {
+        UpdateStatus("Creating account...", Color.yellow);
+
+        var request = new FirebaseAuthRequest
         {
-            UpdateStatus($"Authentication failed: {exception.Message}", Color.red);
+            email = email,
+            password = password
+        };
+
+        string jsonData = JsonConvert.SerializeObject(request);
+
+        using (UnityWebRequest www = new UnityWebRequest(authSignUpUrl, "POST"))
+        {
+            byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
+            www.uploadHandler = new UploadHandlerRaw(bodyRaw);
+            www.downloadHandler = new DownloadHandlerBuffer();
+            www.SetRequestHeader("Content-Type", "application/json");
+
+            yield return www.SendWebRequest();
+
+            SetButtonsInteractable(true);
+
+            if (www.result == UnityWebRequest.Result.Success)
+            {
+                var response = JsonConvert.DeserializeObject<FirebaseAuthResponse>(www.downloadHandler.text);
+                HandleSuccessfulAuth(response, "Account created successfully!");
+            }
+            else
+            {
+                HandleAuthError(www.downloadHandler.text);
+            }
+        }
+    }
+
+    private IEnumerator RefreshTokenCoroutine()
+    {
+        if (string.IsNullOrEmpty(currentRefreshToken)) yield break;
+
+        var requestData = new Dictionary<string, object>
+        {
+            ["grant_type"] = "refresh_token",
+            ["refresh_token"] = currentRefreshToken
+        };
+
+        string jsonData = JsonConvert.SerializeObject(requestData);
+
+        using (UnityWebRequest www = new UnityWebRequest(authRefreshUrl, "POST"))
+        {
+            byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
+            www.uploadHandler = new UploadHandlerRaw(bodyRaw);
+            www.downloadHandler = new DownloadHandlerBuffer();
+            www.SetRequestHeader("Content-Type", "application/json");
+
+            yield return www.SendWebRequest();
+
+            if (www.result == UnityWebRequest.Result.Success)
+            {
+                var response = JsonConvert.DeserializeObject<Dictionary<string, object>>(www.downloadHandler.text);
+                currentIdToken = response["id_token"].ToString();
+                currentRefreshToken = response["refresh_token"].ToString();
+
+                SaveAuthData();
+                HandleSuccessfulLogin();
+            }
+            else
+            {
+                // Token refresh failed, logout
+                Logout();
+            }
+        }
+    }
+
+    private void Logout()
+    {
+        // Clear saved data
+        PlayerPrefs.DeleteKey("Firebase_UserId");
+        PlayerPrefs.DeleteKey("Firebase_Email");
+        PlayerPrefs.DeleteKey("Firebase_IdToken");
+        PlayerPrefs.DeleteKey("Firebase_RefreshToken");
+        PlayerPrefs.Save();
+
+        // Clear current data
+        currentUserId = "";
+        currentEmail = "";
+        currentIdToken = "";
+        currentRefreshToken = "";
+        isLoggedIn = false;
+
+        // Update UI
+        ShowLoginPanel();
+        UpdateStatus("Signed out successfully", Color.green);
+
+        // Trigger events
+        OnUserSignedOut?.Invoke();
+        OnAuthStateChanged?.Invoke(false);
+    }
+
+    private void HandleSuccessfulAuth(FirebaseAuthResponse response, string successMessage)
+    {
+        currentUserId = response.localId;
+        currentEmail = response.email;
+        currentIdToken = response.idToken;
+        currentRefreshToken = response.refreshToken;
+        isLoggedIn = true;
+
+        SaveAuthData();
+        HandleSuccessfulLogin();
+        UpdateStatus(successMessage, Color.green);
+    }
+
+    private void HandleSuccessfulLogin()
+    {
+        ShowUserPanel();
+        OnUserSignedIn?.Invoke(currentUserId);
+        OnAuthStateChanged?.Invoke(true);
+    }
+
+    private void SaveAuthData()
+    {
+        PlayerPrefs.SetString("Firebase_UserId", currentUserId);
+        PlayerPrefs.SetString("Firebase_Email", currentEmail);
+        PlayerPrefs.SetString("Firebase_IdToken", currentIdToken);
+        PlayerPrefs.SetString("Firebase_RefreshToken", currentRefreshToken);
+        PlayerPrefs.Save();
+    }
+
+    private void HandleAuthError(string errorResponse)
+    {
+        try
+        {
+            var errorData = JsonConvert.DeserializeObject<Dictionary<string, object>>(errorResponse);
+            if (errorData.ContainsKey("error"))
+            {
+                var error = JsonConvert.DeserializeObject<Dictionary<string, object>>(errorData["error"].ToString());
+                string message = error["message"].ToString();
+
+                switch (message)
+                {
+                    case "EMAIL_NOT_FOUND":
+                        UpdateStatus("No account found with this email", Color.red);
+                        break;
+                    case "INVALID_PASSWORD":
+                        UpdateStatus("Incorrect password", Color.red);
+                        break;
+                    case "EMAIL_EXISTS":
+                        UpdateStatus("Email is already registered", Color.red);
+                        break;
+                    case "WEAK_PASSWORD":
+                        UpdateStatus("Password is too weak", Color.red);
+                        break;
+                    case "INVALID_EMAIL":
+                        UpdateStatus("Invalid email address", Color.red);
+                        break;
+                    case "TOO_MANY_ATTEMPTS_TRY_LATER":
+                        UpdateStatus("Too many attempts. Try again later", Color.red);
+                        break;
+                    default:
+                        UpdateStatus($"Authentication failed: {message}", Color.red);
+                        break;
+                }
+            }
+            else
+            {
+                UpdateStatus("Authentication failed", Color.red);
+            }
+        }
+        catch
+        {
+            UpdateStatus("Authentication failed", Color.red);
         }
     }
 
@@ -242,9 +380,9 @@ public class FirebaseAuthManager : MonoBehaviour
         if (loginPanel != null) loginPanel.SetActive(false);
         if (userPanel != null) userPanel.SetActive(true);
 
-        if (userEmailText != null && user != null)
+        if (userEmailText != null && !string.IsNullOrEmpty(currentEmail))
         {
-            userEmailText.text = $"Logged in as: {user.Email}";
+            userEmailText.text = $"Logged in as: {currentEmail}";
         }
     }
 
@@ -261,29 +399,29 @@ public class FirebaseAuthManager : MonoBehaviour
 
     void OnDestroy()
     {
-        if (auth != null)
-        {
-            auth.StateChanged -= AuthStateChanged;
-            auth = null;
-        }
+        // Clean up any remaining coroutines
+        StopAllCoroutines();
     }
 
-    // Additional authentication methods
-
-    public async Task<string> GetUserTokenAsync()
+    // Public API methods
+    public string GetUserToken()
     {
-        if (user == null) return null;
+        return currentIdToken;
+    }
 
-        try
-        {
-            var tokenResult = await user.TokenAsync(false);
-            return tokenResult;
-        }
-        catch (Exception e)
-        {
-            Debug.LogError($"Failed to get user token: {e.Message}");
-            return null;
-        }
+    public bool IsUserLoggedIn()
+    {
+        return isLoggedIn && !string.IsNullOrEmpty(currentUserId);
+    }
+
+    public string GetUserEmail()
+    {
+        return currentEmail;
+    }
+
+    public string GetUserId()
+    {
+        return currentUserId;
     }
 
     public void SendPasswordResetEmail()
@@ -296,31 +434,39 @@ public class FirebaseAuthManager : MonoBehaviour
             return;
         }
 
-        auth.SendPasswordResetEmailAsync(email).ContinueWithOnMainThread(task =>
+        StartCoroutine(SendPasswordResetCoroutine(email));
+    }
+
+    private IEnumerator SendPasswordResetCoroutine(string email)
+    {
+        string url = $"https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key={firebaseApiKey}";
+        
+        var requestData = new Dictionary<string, object>
         {
-            if (task.IsCanceled || task.IsFaulted)
+            ["requestType"] = "PASSWORD_RESET",
+            ["email"] = email
+        };
+
+        string jsonData = JsonConvert.SerializeObject(requestData);
+
+        using (UnityWebRequest www = new UnityWebRequest(url, "POST"))
+        {
+            byte[] bodyRaw = Encoding.UTF8.GetBytes(jsonData);
+            www.uploadHandler = new UploadHandlerRaw(bodyRaw);
+            www.downloadHandler = new DownloadHandlerBuffer();
+            www.SetRequestHeader("Content-Type", "application/json");
+
+            yield return www.SendWebRequest();
+
+            if (www.result == UnityWebRequest.Result.Success)
+            {
+                UpdateStatus("Password reset email sent", Color.green);
+            }
+            else
             {
                 UpdateStatus("Failed to send reset email", Color.red);
-                return;
             }
-
-            UpdateStatus("Password reset email sent", Color.green);
-        });
-    }
-
-    public bool IsUserLoggedIn()
-    {
-        return user != null;
-    }
-
-    public string GetUserEmail()
-    {
-        return user?.Email;
-    }
-
-    public string GetUserId()
-    {
-        return user?.UserId;
+        }
     }
 
     [ContextMenu("Generate UI")]
@@ -379,10 +525,7 @@ public class FirebaseAuthManager : MonoBehaviour
         // Logout button
         logoutButton = CreateButton("Logout Button", userPanel.transform, "Logout", new Color(0.6f, 0.2f, 0.2f));
 
-        // Connect buttons
-        loginButton.onClick.AddListener(OnLoginButtonClicked);
-        registerButton.onClick.AddListener(OnRegisterButtonClicked);
-        logoutButton.onClick.AddListener(OnLogoutButtonClicked);
+        // Note: Buttons are already connected in SetupUI()
 
         Debug.Log("Firebase Auth UI generated successfully!");
     }

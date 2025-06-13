@@ -3,6 +3,14 @@ using System.Collections.Generic;
 using UnityEngine;
 using TMPro;
 
+public enum NotificationType
+{
+    Info,
+    Success,
+    Warning,
+    Error
+}
+
 public class NotificationSystem : MonoBehaviour
 {
     [Header("Notification Settings")]
@@ -178,14 +186,6 @@ public class NotificationSystem : MonoBehaviour
             }
         }
     }
-}
-
-public enum NotificationType
-{
-    Info,
-    Success,
-    Warning,
-    Error
 }
 
 // Simple notification UI component

@@ -232,7 +232,9 @@ public class LobbyManager : NetworkBehaviour
             
             foreach (var obj in nearbyObjects)
             {
-                if (obj.GetComponent<NetworkIdentity>() != null)
+                // Check for actual players (with MouseShooting component)
+                var mouseShooting = obj.GetComponent<MouseShooting>();
+                if (mouseShooting != null)
                 {
                     isAvailable = false;
                     break;

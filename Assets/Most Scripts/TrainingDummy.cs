@@ -317,7 +317,10 @@ public class TrainingDummy : NetworkBehaviour, IHittable
     {
         // Show UI when player approaches
         var player = other.GetComponent<NetworkIdentity>();
-        if (player != null && player.isLocalPlayer && dummyUI != null)
+        var mouseShooting = other.GetComponent<MouseShooting>();
+        
+        // Only show UI for actual players (with MouseShooting component)
+        if (player != null && mouseShooting != null && player.isLocalPlayer && dummyUI != null)
         {
             dummyUI.gameObject.SetActive(true);
         }
@@ -327,7 +330,10 @@ public class TrainingDummy : NetworkBehaviour, IHittable
     {
         // Hide UI when player leaves
         var player = other.GetComponent<NetworkIdentity>();
-        if (player != null && player.isLocalPlayer && dummyUI != null)
+        var mouseShooting = other.GetComponent<MouseShooting>();
+        
+        // Only hide UI for actual players (with MouseShooting component)
+        if (player != null && mouseShooting != null && player.isLocalPlayer && dummyUI != null)
         {
             dummyUI.gameObject.SetActive(false);
         }

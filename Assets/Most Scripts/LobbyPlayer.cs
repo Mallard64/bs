@@ -2,6 +2,10 @@ using UnityEngine;
 using Mirror;
 using TMPro;
 
+/// <summary>
+/// DEPRECATED: Use LobbyPlayerAdapter instead
+/// This script is kept for reference but should not be used with existing player prefabs
+/// </summary>
 public class LobbyPlayer : NetworkBehaviour
 {
     [Header("Movement")]
@@ -267,12 +271,4 @@ public class LobbyPlayer : NetworkBehaviour
         Gizmos.color = Color.green;
         Gizmos.DrawWireSphere(transform.position, interactionRange);
     }
-}
-
-// Interface for interactable objects in the lobby
-public interface IInteractable
-{
-    void Interact(GameObject player);
-    string GetInteractionText();
-    bool CanInteract(GameObject player);
 }

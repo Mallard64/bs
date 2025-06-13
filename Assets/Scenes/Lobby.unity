@@ -1010,6 +1010,7 @@ GameObject:
   - component: {fileID: 781892431}
   - component: {fileID: 781892432}
   - component: {fileID: 781892433}
+  - component: {fileID: 781892434}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -1211,6 +1212,25 @@ MonoBehaviour:
   clientMaxReceivesPerTick: 1000
   clientSendQueueLimit: 10000
   clientReceiveQueueLimit: 10000
+--- !u!114 &781892434
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 781892427}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 99fc9bb73215640ae816458d846a9798, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  setupLobbyManager: 1
+  setupBasicPortals: 1
+  setupNotificationSystem: 1
+  setupBasicUI: 1
+  playerPrefab: {fileID: 2962604456336756810, guid: 872c083740dfa4aea9a206595106683c,
+    type: 3}
+  weaponPrefabs: []
 --- !u!1001 &790258275
 PrefabInstance:
   m_ObjectHideFlags: 0

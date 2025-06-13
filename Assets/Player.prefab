@@ -2381,6 +2381,7 @@ GameObject:
   - component: {fileID: 6944512217121775745}
   - component: {fileID: 412633297455709046}
   - component: {fileID: 8058399048597091887}
+  - component: {fileID: 7640123068330924053}
   m_Layer: 3
   m_Name: Player
   m_TagString: Player
@@ -2901,6 +2902,32 @@ MonoBehaviour:
   syncInterval: 0
   clientAuthority: 1
   animator: {fileID: -5610539726793669306}
+--- !u!114 &7640123068330924053
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2962604456336756810}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e63e9f75fb1d3461eac6b053178735b9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  syncDirection: 0
+  syncMode: 0
+  syncInterval: 0
+  isInLobby: 1
+  lobbyMoveSpeed: 3
+  lobbyRunSpeedMultiplier: 1.5
+  interactionRange: 2
+  interactableLayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  lobbyUI: {fileID: 0}
+  interactionPrompt: {fileID: 0}
+  playerNameText: {fileID: 0}
+  playerDisplayName: Player
 --- !u!1 &3148901912037420648
 GameObject:
   m_ObjectHideFlags: 0

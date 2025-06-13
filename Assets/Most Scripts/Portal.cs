@@ -5,7 +5,7 @@ using Mirror;
 using TMPro;
 using UnityEngine.SceneManagement;
 
-public class Portal : NetworkBehaviour
+public class Portal : NetworkBehaviour, IInteractable
 {
     [Header("Portal Settings")]
     public string targetScene = "Boss";
@@ -96,7 +96,10 @@ public class Portal : NetworkBehaviour
     void OnTriggerEnter2D(Collider2D other)
     {
         var networkIdentity = other.GetComponent<NetworkIdentity>();
-        if (networkIdentity != null)
+        var mouseShooting = other.GetComponent<MouseShooting>();
+        
+        // Only count objects with MouseShooting (actual players)
+        if (networkIdentity != null && mouseShooting != null)
         {
             var playerId = networkIdentity.netId;
             
@@ -118,7 +121,10 @@ public class Portal : NetworkBehaviour
     void OnTriggerExit2D(Collider2D other)
     {
         var networkIdentity = other.GetComponent<NetworkIdentity>();
-        if (networkIdentity != null)
+        var mouseShooting = other.GetComponent<MouseShooting>();
+        
+        // Only count objects with MouseShooting (actual players)
+        if (networkIdentity != null && mouseShooting != null)
         {
             var playerId = networkIdentity.netId;
             
@@ -138,13 +144,35 @@ public class Portal : NetworkBehaviour
     
     void Update()
     {
-        if (playerInRange && Input.GetKeyDown(KeyCode.E))
+        // Update UI
+        UpdateUI();
+    }
+    
+    // IInteractable implementation
+    public void Interact(GameObject player)
+    {
+        var networkIdentity = player.GetComponent<NetworkIdentity>();
+        if (networkIdentity != null && networkIdentity.isLocalPlayer)
         {
             CmdAttemptTeleport();
         }
-        
-        // Update UI
-        UpdateUI();
+    }
+    
+    public string GetInteractionText()
+    {
+        if (playersNearPortal >= minPlayersRequired)
+        {
+            return $"enter {portalName}";
+        }
+        else
+        {
+            return $"wait for {minPlayersRequired - playersNearPortal} more players";
+        }
+    }
+    
+    public bool CanInteract(GameObject player)
+    {
+        return isPortalActive && playersNearPortal >= minPlayersRequired;
     }
     
     void ShowInteractionPrompt(bool show)
