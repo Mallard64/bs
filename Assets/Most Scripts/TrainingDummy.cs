@@ -93,6 +93,16 @@ public class TrainingDummy : NetworkBehaviour, IHittable
         }
     }
     
+    public void TakeDamage(int damage)
+    {
+        TakeDamage((float)damage, 0);
+    }
+    
+    public void TakeDamage(float damage)
+    {
+        TakeDamage(damage, 0);
+    }
+    
     public void TakeDamage(float damage, uint shooterId = 0)
     {
         if (!isServer) return;

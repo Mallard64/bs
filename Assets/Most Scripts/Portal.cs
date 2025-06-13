@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using Mirror;
 using TMPro;
@@ -95,7 +96,7 @@ public class Portal : NetworkBehaviour
     void OnTriggerEnter2D(Collider2D other)
     {
         var networkIdentity = other.GetComponent<NetworkIdentity>();
-        if (networkIdentity != null && networkIdentity.hasAuthority)
+        if (networkIdentity != null)
         {
             var playerId = networkIdentity.netId;
             
@@ -117,7 +118,7 @@ public class Portal : NetworkBehaviour
     void OnTriggerExit2D(Collider2D other)
     {
         var networkIdentity = other.GetComponent<NetworkIdentity>();
-        if (networkIdentity != null && networkIdentity.hasAuthority)
+        if (networkIdentity != null)
         {
             var playerId = networkIdentity.netId;
             

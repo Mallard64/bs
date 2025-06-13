@@ -26,6 +26,11 @@ public class MouseShooting : NetworkBehaviour
 
     public GameObject[] staffBullets;
 
+    public GameObject[] morphBullets;
+
+    public GameObject[] hammerBullets;
+
+
     [Header("Weapon Prefabs (0 = none)")]
     public GameObject[] weapons;
 
@@ -465,6 +470,14 @@ public class MouseShooting : NetworkBehaviour
             if (bulletPrefab != null)
                 NetworkClient.RegisterPrefab(bulletPrefab);
 
+        foreach (var bulletPrefab in morphBullets)
+            if (bulletPrefab != null)
+                NetworkClient.RegisterPrefab(bulletPrefab);
+
+        foreach (var bulletPrefab in hammerBullets)
+            if (bulletPrefab != null)
+                NetworkClient.RegisterPrefab(bulletPrefab);
+
         // Attach any existing weapon
         if (weaponNetId != 0)
             AttachWeaponClient(0, weaponNetId);
@@ -822,9 +835,9 @@ public class MouseShooting : NetworkBehaviour
         isAuto = true;
         
         // Play animation immediately on client for responsive feedback
-        if (weaponNetId != 0 && NetworkClient.spawned.TryGetValue(weaponNetId, out var weaponNi))
+        if (weaponNetId != 0 && NetworkClient.spawned.TryGetValue(weaponNetId, out var wn))
         {
-            var weapon = weaponNi.GetComponent<Weapon>();
+            var weapon = wn.GetComponent<Weapon>();
             if (weapon != null)
             {
                 weapon.PlayShootAnimation();
@@ -868,9 +881,9 @@ public class MouseShooting : NetworkBehaviour
         isAuto = false;
         
         // Play animation immediately on client for responsive feedback
-        if (weaponNetId != 0 && NetworkClient.spawned.TryGetValue(weaponNetId, out var weaponNi))
+        if (weaponNetId != 0 && NetworkClient.spawned.TryGetValue(weaponNetId, out var wn))
         {
-            var weapon = weaponNi.GetComponent<Weapon>();
+            var weapon = wn.GetComponent<Weapon>();
             if (weapon != null)
             {
                 weapon.PlayShootAnimation();
@@ -911,12 +924,14 @@ public class MouseShooting : NetworkBehaviour
         // Trigger fun features on all clients
         RpcTriggerFunFeatures(weapon.id, swapModeNum);
 
+        weapon.PlayShootAnimation();
+        weapon.RotateToDirection(direction);
+
         // Start shooting sequence
         StartCoroutine(ShootingSequence(weapon.id, direction, weapon.startup, weapon.shot, weapon.end));
 
         // Tell weapon to play animation and rotate
-        weapon.PlayShootAnimation();
-        weapon.RotateToDirection(direction);
+        
     }
 
     private IEnumerator ShootingSequence(int weaponId, Vector3 direction, float startup, float shot, float end)
@@ -1241,7 +1256,7 @@ public class MouseShooting : NetworkBehaviour
                 lightningDistance = Mathf.Clamp(lightningDistance, 1f, 6f);
                 
                 // Position lightning with pivot at left center, starting from firePoint
-                Vector3 lightningStartPos = firePoint.position;
+                Vector3 lightningStartPos = firePoint.position + direction.normalized * 0.8f;
                 
                 // Spawn lightning bolt at starting position
                 GameObject lightning = Instantiate(staffBullets[2], lightningStartPos, Quaternion.identity);
@@ -1312,7 +1327,7 @@ public class MouseShooting : NetworkBehaviour
         {
             case 0: // Rocket Mode - Fast seeking projectile
                 Vector3 rocketPos = firePoint.position + direction.normalized * 0.8f;
-                GameObject rocket = Instantiate(bulletPrefabs[0], rocketPos, Quaternion.identity);
+                GameObject rocket = Instantiate(morphBullets[0], rocketPos, Quaternion.identity);
                 
                 float rocketAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
                 rocket.transform.rotation = Quaternion.Euler(0, 0, rocketAngle);
@@ -1337,7 +1352,7 @@ public class MouseShooting : NetworkBehaviour
                 for (int i = 1; i <= 8; i++)
                 {
                     Vector3 beamPos = firePoint.position + (direction.normalized * i * 0.5f);
-                    GameObject beamSegment = Instantiate(bulletPrefabs[2], beamPos, Quaternion.identity);
+                    GameObject beamSegment = Instantiate(morphBullets[1], beamPos, Quaternion.identity);
                     
                     float beamAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
                     beamSegment.transform.rotation = Quaternion.Euler(0, 0, beamAngle);
@@ -1358,7 +1373,7 @@ public class MouseShooting : NetworkBehaviour
 
             case 2: // Grenade Mode - Bouncing explosive
                 Vector3 grenadePos = firePoint.position + direction.normalized * 0.6f;
-                GameObject grenade = Instantiate(bulletPrefabs[1], grenadePos, Quaternion.identity);
+                GameObject grenade = Instantiate(morphBullets[2], grenadePos, Quaternion.identity);
                 
                 float grenadeAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
                 grenade.transform.rotation = Quaternion.Euler(0, 0, grenadeAngle);
@@ -1472,7 +1487,7 @@ public class MouseShooting : NetworkBehaviour
                     Vector3 slamDir = Quaternion.Euler(0, 0, slamAngle) * direction;
                     Vector3 slamPos = firePoint.position + slamDir.normalized * (0.5f + Mathf.Abs(i) * 0.3f);
                     
-                    GameObject shockwave = Instantiate(bulletPrefabs[2], slamPos, Quaternion.identity);
+                    GameObject shockwave = Instantiate(hammerBullets[0], slamPos, Quaternion.identity);
                     float shockAngle = Mathf.Atan2(slamDir.y, slamDir.x) * Mathf.Rad2Deg;
                     shockwave.transform.rotation = Quaternion.Euler(0, 0, shockAngle);
                     
@@ -1492,7 +1507,7 @@ public class MouseShooting : NetworkBehaviour
 
             case 1: // Throw Mode - Boomerang effect
                 Vector3 throwPos = firePoint.position + direction.normalized * 0.7f;
-                GameObject thrownHammer = Instantiate(bulletPrefabs[1], throwPos, Quaternion.identity);
+                GameObject thrownHammer = Instantiate(hammerBullets[1], throwPos, Quaternion.identity);
                 
                 float throwAngle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
                 thrownHammer.transform.rotation = Quaternion.Euler(0, 0, throwAngle);

@@ -167,7 +167,7 @@ MonoBehaviour:
   slotnum: 0
   ammoFillImage: {fileID: 0}
   ammoFractionText: {fileID: 0}
-  startup: 0.1
+  startup: 0.3
   shot: 0.1
   end: 0.6
   timerMax: 0.5

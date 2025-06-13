@@ -231,7 +231,7 @@ public class Weapon : NetworkBehaviour
                 switch (mouseShooting.swapModeNum)
                 {
                     case 0: mouseShooting.shotCooldownTime = 1.0f; break; // Rocket
-                    case 1: mouseShooting.shotCooldownTime = 2.0f; break; // Beam - high energy cost
+                    case 1: mouseShooting.shotCooldownTime = 0.5f; break; // Beam - high energy cost
                     case 2: mouseShooting.shotCooldownTime = 1.8f; break; // Grenade - explosive
                 }
                 break;

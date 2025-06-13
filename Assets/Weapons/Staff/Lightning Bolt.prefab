@@ -60,7 +60,7 @@ MonoBehaviour:
   knockbackScaling: 70
   shooterId: 0
   shotByEnemy: 0
-  effectType: 0
+  effectType: 4
   effectDuration: 3
   effectDamage: 5
   slowAmount: 0.5
@@ -69,7 +69,7 @@ MonoBehaviour:
   isPiercing: 0
   canGoThroughWalls: 0
   maxPierceTargets: -1
-  outwardOffset: 0.3
+  outwardOffset: 0.8
   parent: {fileID: 0}
 --- !u!212 &856623730395010133
 SpriteRenderer:

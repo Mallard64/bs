@@ -265,7 +265,7 @@ public class LobbyPlayer : NetworkBehaviour
     {
         // Draw interaction range
         Gizmos.color = Color.green;
-        Gizmos.DrawWireCircle(transform.position, interactionRange);
+        Gizmos.DrawWireSphere(transform.position, interactionRange);
     }
 }
 
